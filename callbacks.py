@@ -19,7 +19,8 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
         wav_data = tf.identity(initial_data)
         last_vector = wav_data
         for i in range(passes):
-            next_part = self.model.decoder(self.model.encoder(last_vector))
+            u, v, z = self.model.encoder(last_vector)
+            next_part = self.model.decoder(z)
             wav_data = tf.concat([wav_data, next_part], axis=1)
             # wav_data = tf.concat([wav_data, initial_data], axis=1)
             last_vector = next_part
@@ -43,7 +44,7 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
         num_attempts = 3
 
         initial_data = []
-        for x, y in self.train_dataset.shuffle(10240).take(1):
+        for x, y in self.train_dataset.shuffle(1024).take(1):
             for sample in x:
                 if num_attempts > 0:
                     initial_data.append(sample)
