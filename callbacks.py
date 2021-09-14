@@ -26,16 +26,14 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
             last_vector = next_part
         return wav_data
 
-    def _gen_plot(self, wave):
+    def _gen_plot(self, w):
         """Create a pyplot plot and save to buffer."""
-        w = tf.squeeze(wave, axis=-1)
         plt.figure()
         plt.plot(w[0].numpy())
         buf = io.BytesIO()
         plt.savefig(buf, format='png')
         buf.seek(0)
         img = tf.image.decode_png(buf.getvalue(), channels=4)
-        img = tf.expand_dims(img, axis=0)
         plt.close()
         return img
 
