@@ -10,7 +10,7 @@ from models import SampleVAE
 def main():
     version = 1
     sr = 16000
-    batch_size = 16
+    batch_size = 512
     vector_size = 128
     latent_dim = 16
     epochs = 200

@@ -36,6 +36,9 @@ class SampleVAE(tf.keras.Model):
 
         while current > self.latent_dim:
             x = layers.Conv1D(filters, 3, dilation_rate=1, padding='same', activation='tanh')(x)
+            x = layers.Conv1D(filters, 3, dilation_rate=2, padding='same', activation='tanh')(x)
+            x = layers.Conv1D(filters, 3, dilation_rate=4, padding='same', activation='tanh')(x)
+            x = layers.Conv1D(filters, 3, dilation_rate=8, padding='same', activation='tanh')(x)
             x = layers.MaxPooling1D()(x)
             current //= 2
             filters *= 2
@@ -60,6 +63,9 @@ class SampleVAE(tf.keras.Model):
         x = layers.Reshape((self.latent_dim, 1))(inputs)
 
         while current < self.vector_size:
+            x = layers.Conv1DTranspose(filters, 3, dilation_rate=8, padding='same', activation='tanh')(x)
+            x = layers.Conv1DTranspose(filters, 3, dilation_rate=4, padding='same', activation='tanh')(x)
+            x = layers.Conv1DTranspose(filters, 3, dilation_rate=2, padding='same', activation='tanh')(x)
             x = layers.Conv1DTranspose(filters, 3, dilation_rate=1, padding='same', activation='tanh')(x)
             x = layers.UpSampling1D()(x)
             current *= 2
