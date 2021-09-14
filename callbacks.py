@@ -3,6 +3,7 @@ from datetime import datetime
 import io
 from matplotlib import pyplot as plt
 from datasets import SampleDataset
+from models import SampleVAE
 
 
 class SynthesisCallback(tf.keras.callbacks.Callback):
@@ -15,11 +16,14 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
         self.train_dataset = train_dataset
 
     def _synthesize(self, initial_data, sample_length=16000):
+        # model = SampleVAE()
         passes = sample_length // self.vector_size
         wav_data = tf.identity(initial_data)
         last_vector = wav_data
         for i in range(passes):
+            # u, v, z = model.encoder(last_vector)
             u, v, z = self.model.encoder(last_vector)
+            # next_part = model.decoder(z)
             next_part = self.model.decoder(z)
             wav_data = tf.concat([wav_data, next_part], axis=1)
             # wav_data = tf.concat([wav_data, initial_data], axis=1)
@@ -52,6 +56,8 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
             break
 
         synthesized = self._synthesize(initial_data, sample_length=self.sr)
+
+        tf.io.write_file("epoch-{}.wav".format(epoch),tf.audio.encode_wav(tf.expand_dims(synthesized[0], 1), self.sr))
 
         plots = []
         for waveform in synthesized:
