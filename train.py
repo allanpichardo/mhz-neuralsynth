@@ -36,7 +36,8 @@ def main():
 
     autoencoder.fit(dataset, epochs=epochs, callbacks=[
         SynthesisCallback(dataset, vector_size=vector_size, sr=sr, logdir=logdir),
-        tf.keras.callbacks.TensorBoard(log_dir=logdir, embeddings_freq=1)
+        tf.keras.callbacks.TensorBoard(log_dir=logdir, embeddings_freq=1),
+        tf.keras.callbacks.EarlyStopping(monitor='prediction_loss', patience=3, verbose=1)
     ])
 
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'models')):
