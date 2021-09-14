@@ -1,10 +1,11 @@
 import tensorflow as tf
 from datetime import datetime
-
+import io
+from matplotlib import pyplot as plt
 from datasets import SampleDataset
 
 
-class SpectrogramCallback(tf.keras.callbacks.Callback):
+class SynthesisCallback(tf.keras.callbacks.Callback):
 
     def __init__(self, train_dataset, vector_size=128, sr=16000, logdir="logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")):
         super().__init__()
@@ -24,6 +25,19 @@ class SpectrogramCallback(tf.keras.callbacks.Callback):
             last_vector = next_part
         return wav_data
 
+    def _gen_plot(self, wave):
+        """Create a pyplot plot and save to buffer."""
+        w = tf.squeeze(wave, axis=-1)
+        plt.figure()
+        plt.plot(w[0].numpy())
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        img = tf.image.decode_png(buf.getvalue(), channels=4)
+        img = tf.expand_dims(img, axis=0)
+        plt.close()
+        return img
+
     def on_epoch_end(self, epoch, logs=None):
 
         num_attempts = 3
@@ -40,13 +54,18 @@ class SpectrogramCallback(tf.keras.callbacks.Callback):
 
         synthesized = self._synthesize(initial_data, sample_length=self.sr)
 
+        plots = []
+        for waveform in synthesized:
+            plots.append(self._gen_plot(waveform))
+
         file_writer = tf.summary.create_file_writer(self.logdir)
         with file_writer.as_default():
             tf.summary.audio("Synthesis", synthesized, self.sr, step=epoch, max_outputs=num_attempts,
                              description="Synthesized audio")
+            tf.summary.image("Synthesized Waveform", plots, step=epoch, max_outputs=num_attempts)
 
 
 if __name__ == '__main__':
     ds = SampleDataset().get_dataset()
-    cb = SpectrogramCallback(ds)
+    cb = SynthesisCallback(ds)
     cb.on_epoch_end(1)
