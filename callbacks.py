@@ -59,7 +59,7 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
 
         file_writer = tf.summary.create_file_writer(self.logdir)
         with file_writer.as_default():
-            tf.summary.audio("Synthesis", synthesized, self.sr, step=epoch, max_outputs=num_attempts,
+            tf.summary.audio("Synthesis", tf.expand_dims(synthesized, axis=2), self.sr, step=epoch, max_outputs=num_attempts,
                              description="Synthesized audio")
             tf.summary.image("Synthesized Waveform", plots, step=epoch, max_outputs=num_attempts)
 
