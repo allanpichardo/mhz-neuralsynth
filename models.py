@@ -23,59 +23,77 @@ class SampleVAE(tf.keras.Model):
         self.prediction_loss_tracker = tf.keras.metrics.Mean(name="prediction_loss")
         self.kl_loss_tracker = tf.keras.metrics.Mean(name="kl_loss")
 
-        self.encoder, filters, dilation = self._get_encoder()
-        self.decoder = self._get_decoder(filters=filters, dilation=dilation)
+        self.encoder = self._get_encoder()
+        self.decoder = self._get_decoder()
+
+    def _encoding_residual_block(self, x, filters=32, dilation_rate=1):
+        x0 = x
+        x = layers.ELU()(x)
+        x = layers.Conv1D(filters, 3, dilation_rate=dilation_rate, padding='same')(x)
+        x = layers.ELU()(x)
+        x = layers.Conv1D(filters, 1, padding='same')(x)
+        x = layers.Add()([x, x0])
+        return x
 
     def _get_encoder(self):
-        current = self.vector_size
-        filters = 16
-        dilation = 1
-
         inputs = layers.Input(shape=(self.vector_size,))
         x = layers.Reshape((self.vector_size, 1))(inputs)
 
-        while current > self.latent_dim:
-            x = layers.Conv1D(filters, 3, dilation_rate=1, padding='same', activation='tanh')(x)
-            x = layers.Conv1D(filters, 3, dilation_rate=2, padding='same', activation='tanh')(x)
-            x = layers.Conv1D(filters, 3, dilation_rate=4, padding='same', activation='tanh')(x)
-            x = layers.Conv1D(filters, 3, dilation_rate=8, padding='same', activation='tanh')(x)
-            x = layers.MaxPooling1D()(x)
-            current //= 2
-            filters *= 2
-            dilation *= 2
+        x = layers.Conv1D(32, 3, padding='same')(x)
+        for i in range(3):
+            dilation = 1
+            for j in range(10):
+                x = self._encoding_residual_block(x, filters=32, dilation_rate=dilation)
+                dilation *= 2
 
-        z_mean = layers.Conv1D(1, 1, padding='same', activation=None, name="z_mean")(x)
-        z_mean = layers.Flatten()(z_mean)
-
-        z_log_var = layers.Conv1D(1, 1, padding='same', activation=None, name="z_log_var")(x)
-        z_log_var = layers.Flatten()(z_log_var)
-
-        z = Sampling()([z_mean, z_log_var])
-
-        return tf.keras.Model(inputs=inputs, outputs=[z_mean, z_log_var, z]), filters // 2, dilation // 2
-
-    def _get_decoder(self, filters=64, dilation=4):
-        current = self.latent_dim
-        filters = filters
-        dilation = dilation
-
-        inputs = layers.Input(shape=(self.latent_dim,))
-        x = layers.Reshape((self.latent_dim, 1))(inputs)
-
-        while current < self.vector_size:
-            x = layers.Conv1DTranspose(filters, 3, dilation_rate=8, padding='same', activation='tanh')(x)
-            x = layers.Conv1DTranspose(filters, 3, dilation_rate=4, padding='same', activation='tanh')(x)
-            x = layers.Conv1DTranspose(filters, 3, dilation_rate=2, padding='same', activation='tanh')(x)
-            x = layers.Conv1DTranspose(filters, 3, dilation_rate=1, padding='same', activation='tanh')(x)
-            x = layers.UpSampling1D()(x)
-            current *= 2
-            filters //= 2
-            dilation //= 2
-
-        x = layers.Conv1DTranspose(1, 1, padding='same', activation=None)(x)
-        x = layers.Reshape((self.vector_size,))(x)
+        x = layers.Conv1D(self.latent_dim, 1, padding='same')(x)
+        x = layers.AveragePooling1D(strides=self.latent_dim)(x)
 
         return tf.keras.Model(inputs=inputs, outputs=x)
+
+    def _wavenet_residual_block(self, x, filters=32, dilation_rate=1, bias=None, i=0):
+        x0 = x
+
+        if bias is not None:
+            x = layers.Add(name="bias_{}".format(i))([x, bias])
+
+        x = layers.Conv1D(filters, 3, dilation_rate=dilation_rate, padding='causal')(x)
+        tan = layers.Activation('tanh')(x)
+        sig = layers.Activation('sigmoid')(x)
+        x = layers.Multiply()([tan, sig])
+        skip = layers.Conv1D(32, 1, padding='same')(x)
+        resid = layers.Add()([skip, x0])
+        return resid, skip
+
+    def _get_decoder(self):
+        signal_input = layers.Input(shape=(self.vector_size,))
+        latent_input = layers.Input(shape=(self.vector_size//self.latent_dim, self.latent_dim))
+
+        x = layers.Reshape((self.vector_size, 1))(signal_input)
+        x = layers.Conv1D(32, 3, padding='causal')(x)
+
+        z = layers.UpSampling1D(self.latent_dim)(latent_input)
+        z_dimensions = tf.split(z, self.latent_dim, axis=-1)
+
+        dilation = 1
+        skip_connections = []
+        for i in range(self.latent_dim):
+            z_bias = z_dimensions[i]
+            z_bias = layers.Conv1D(32, 3, padding='causal')(z_bias)
+
+            x, skip = self._wavenet_residual_block(x, filters=32, dilation_rate=dilation, bias=z_bias, i=i)
+            skip_connections.append(skip)
+            dilation *= 2
+
+        x = layers.Add()(skip_connections)
+        x = layers.ELU()(x)
+        x = layers.Conv1D(32, 1, padding='same')(x)
+        x = layers.ELU()(x)
+        x = layers.Conv1D(32, 1, padding='same')(x)
+        x = layers.Flatten()(x)
+        x = layers.Dense(255, activation='softmax')(x)
+
+        return tf.keras.Model(inputs=[signal_input, latent_input], outputs=x)
 
     def call(self, inputs, training=None, mask=None):
         u, v, z = self.encoder(inputs)
@@ -119,7 +137,7 @@ class SampleVAE(tf.keras.Model):
 
 
 if __name__=='__main__':
-    vae = SampleVAE()
+    vae = SampleVAE(vector_size=512)
     vae.encoder.summary()
     vae.decoder.summary()
-    vae.summary()
+    # vae.summary()
