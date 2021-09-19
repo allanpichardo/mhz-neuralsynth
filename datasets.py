@@ -33,10 +33,16 @@ class SampleDataset:
         ).cache().map(
             self._quantize, num_parallel_calls=tf.data.AUTOTUNE
         ).cache().map(
+            self._y_to_one_hot_byte, num_parallel_calls=tf.data.AUTOTUNE
+        ).cache().map(
             self._normalize, num_parallel_calls=tf.data.AUTOTUNE
         )
 
-    @tf.function
+    def _y_to_one_hot_byte(self, x, y):
+        layer = tf.keras.layers.CategoryEncoding(num_tokens=256, output_mode="one_hot")
+        onehot = layer(y)
+        return x, onehot
+
     def _split_into_chunks(self, dataset):
         wav = dataset['x']
 
@@ -70,16 +76,14 @@ class SampleDataset:
     def _quantize(self, x, y):
         return mu_law_encode(x), mu_law_encode(y)
 
-
     def _normalize(self, x, y):
         x = tf.cast(x, tf.float32) / 255.0
-        y = tf.cast(y, tf.float32) / 255.0
         return x, y
 
-    @tf.function
     def _read_tfrecord(self, raw):
         feature_description = {
-            'x': tf.io.FixedLenFeature([self.data_sample_length, 1], tf.float32, default_value=np.zeros((self.data_sample_length,))),
+            'x': tf.io.FixedLenFeature([self.data_sample_length, 1], tf.float32,
+                                       default_value=np.zeros((self.data_sample_length,))),
         }
 
         example = tf.io.parse_single_example(raw, feature_description)
@@ -127,7 +131,8 @@ class SampleDatasetBuilder:
         return example_proto.SerializeToString()
 
     def save_record_file(self, subset='train'):
-        filepath = os.path.join(os.path.dirname(__file__), 'data', 'train.tfrecord' if subset != 'validation' else 'validation.tfrecord')
+        filepath = os.path.join(os.path.dirname(__file__), 'data',
+                                'train.tfrecord' if subset != 'validation' else 'validation.tfrecord')
 
         if not os.path.exists(os.path.dirname(filepath)):
             print("Path not found, creating direcory")
@@ -164,7 +169,8 @@ class SampleDatasetBuilder:
         raw_dataset = tf.data.TFRecordDataset([filepath], compression_type='ZLIB')
         for i in range(num_shards):
             print("Writing part {}".format(i))
-            with tf.io.TFRecordWriter(os.path.join(dir, "{}-part-{}.tfrecord".format(name, i)), SampleDatasetBuilder.get_tfrecord_options()) as writer:
+            with tf.io.TFRecordWriter(os.path.join(dir, "{}-part-{}.tfrecord".format(name, i)),
+                                      SampleDatasetBuilder.get_tfrecord_options()) as writer:
                 shard = raw_dataset.shard(num_shards, i)
                 for example in shard:
                     writer.write(example.numpy())

@@ -36,10 +36,8 @@ class SampleVAE(tf.keras.Model):
         return x
 
     def _get_encoder(self):
-        inputs = layers.Input(shape=(self.vector_size,))
-        x = layers.Reshape((self.vector_size, 1))(inputs)
-
-        x = layers.Conv1D(32, 3, padding='same')(x)
+        inputs = layers.Input(shape=(self.vector_size, 1))
+        x = layers.Conv1D(32, 3, padding='same')(inputs)
         for i in range(3):
             dilation = 1
             for j in range(10):
@@ -66,11 +64,10 @@ class SampleVAE(tf.keras.Model):
         return resid, skip
 
     def _get_decoder(self):
-        signal_input = layers.Input(shape=(self.vector_size,))
+        signal_input = layers.Input(shape=(self.vector_size, 1))
         latent_input = layers.Input(shape=(self.vector_size//self.latent_dim, self.latent_dim))
 
-        x = layers.Reshape((self.vector_size, 1))(signal_input)
-        x = layers.Conv1D(32, 3, padding='causal')(x)
+        x = layers.Conv1D(32, 3, padding='causal')(signal_input)
 
         z = layers.UpSampling1D(self.latent_dim)(latent_input)
         z_dimensions = tf.split(z, self.latent_dim, axis=-1)
@@ -87,17 +84,17 @@ class SampleVAE(tf.keras.Model):
 
         x = layers.Add()(skip_connections)
         x = layers.ELU()(x)
-        x = layers.Conv1D(32, 1, padding='same')(x)
+        x = layers.Conv1D(32, 1, padding='same', strides=2)(x)
         x = layers.ELU()(x)
-        x = layers.Conv1D(32, 1, padding='same')(x)
+        x = layers.Conv1D(32, 1, padding='same', strides=2)(x)
         x = layers.Flatten()(x)
         x = layers.Dense(255, activation='softmax')(x)
 
         return tf.keras.Model(inputs=[signal_input, latent_input], outputs=x)
 
     def call(self, inputs, training=None, mask=None):
-        u, v, z = self.encoder(inputs)
-        y_pred = self.decoder(z)
+        z = self.encoder(inputs)
+        y_pred = self.decoder([inputs, z])
         return y_pred
 
     @property
@@ -137,7 +134,7 @@ class SampleVAE(tf.keras.Model):
 
 
 if __name__=='__main__':
-    vae = SampleVAE(vector_size=512)
+    vae = SampleVAE(vector_size=128)
     vae.encoder.summary()
     vae.decoder.summary()
     # vae.summary()
