@@ -85,7 +85,7 @@ class SampleVAE(tf.keras.Model):
         x = layers.ELU()(x)
         x = layers.Conv1D(32, 1, padding='same', strides=2)(x)
         x = layers.Flatten()(x)
-        x = layers.Dense(255, activation='softmax')(x)
+        x = layers.Dense(256, activation='softmax')(x)
 
         return tf.keras.Model(inputs=[signal_input, latent_input], outputs=x)
 
