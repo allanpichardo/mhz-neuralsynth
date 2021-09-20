@@ -30,8 +30,8 @@ def main():
     autoencoder.encoder.summary()
     autoencoder.decoder.summary()
 
-    tran_dataset = SampleDataset(vector_size=vector_size, subset='train').get_dataset(batch_size=batch_size)
-    val_dataset = SampleDataset(vector_size=vector_size, subset='validation').get_dataset(batch_size=batch_size)
+    tran_dataset = SampleDataset(vector_size=vector_size, subset='train', full_set=False).get_dataset(batch_size=batch_size)
+    val_dataset = SampleDataset(vector_size=vector_size, subset='validation', full_set=False).get_dataset(batch_size=batch_size)
 
     autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
                         metrics=['accuracy'],
