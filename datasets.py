@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 
 class SampleDataset:
 
-    def __init__(self, vector_size=128, data_sample_length=8000, subset='train'):
+    def __init__(self, vector_size=128, data_sample_length=8000, subset='train', full_set=True):
         self.vector_size = vector_size
         self.data_sample_length = data_sample_length
 
@@ -21,6 +21,12 @@ class SampleDataset:
             glob.glob(dataset_path),
             compression_type='ZLIB'
         )  # automatically interleaves reads from multiple files
+        if not full_set:
+            dataset = tf.data.TFRecordDataset(
+                glob.glob(dataset_path)[0],
+                compression_type='ZLIB'
+            )
+
         dataset = dataset.with_options(
             ignore_order
         )  # uses data as soon as it streams in, rather than in its original order

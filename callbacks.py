@@ -4,6 +4,7 @@ import io
 from matplotlib import pyplot as plt
 from datasets import SampleDataset
 from models import SampleVAE
+from utils import mu_law_decode
 
 
 class SynthesisCallback(tf.keras.callbacks.Callback):
@@ -15,20 +16,31 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
         self.vector_size = vector_size
         self.train_dataset = train_dataset
 
+    def _reconstruct(self, one_hot):
+        a = tf.argmax(one_hot, axis=1)
+        a = tf.cast(a, tf.float32)
+        a = tf.expand_dims(a, 1)
+        a = tf.expand_dims(a, 0)
+        return a / 255.0
+
     def _synthesize(self, initial_data, sample_length=16000):
-        # model = SampleVAE()
-        passes = sample_length // self.vector_size
+        model = SampleVAE()
+        passes = sample_length - self.vector_size
         wav_data = tf.identity(initial_data)
-        last_vector = wav_data
         for i in range(passes):
-            # u, v, z = model.encoder(last_vector)
-            u, v, z = self.model.encoder(last_vector)
-            # next_part = model.decoder(z)
-            next_part = self.model.decoder(z)
-            wav_data = tf.concat([wav_data, next_part], axis=1)
-            # wav_data = tf.concat([wav_data, initial_data], axis=1)
-            last_vector = next_part
-        return wav_data
+            signal_input = wav_data[:, -self.vector_size:, :]
+
+            z = model.encoder(signal_input)
+            # z = self.model.encoder(signal_input)
+
+            next_sample = model.decoder([signal_input, z])
+            # next_sample = self.model.decoder([signal_input, z])
+
+            next_sample = self._reconstruct(next_sample)
+            wav_data = tf.concat([wav_data, next_sample], axis=1)
+
+        wav_data = wav_data * 255.0
+        return mu_law_decode(wav_data)
 
     def _gen_plot(self, w):
         """Create a pyplot plot and save to buffer."""
@@ -46,7 +58,7 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
         num_attempts = 3
 
         initial_data = []
-        for x, y in self.train_dataset.shuffle(1024).take(1):
+        for x, y in self.train_dataset.shuffle(64).take(1):
             for sample in x:
                 if num_attempts > 0:
                     initial_data.append(sample)
@@ -65,12 +77,12 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
 
         file_writer = tf.summary.create_file_writer(self.logdir)
         with file_writer.as_default():
-            tf.summary.audio("Synthesis", tf.expand_dims(synthesized, axis=2), self.sr, step=epoch, max_outputs=num_attempts,
+            tf.summary.audio("Synthesis", synthesized, self.sr, step=epoch, max_outputs=num_attempts,
                              description="Synthesized audio")
             tf.summary.image("Synthesized Waveform", plots, step=epoch, max_outputs=num_attempts)
 
 
 if __name__ == '__main__':
-    ds = SampleDataset().get_dataset()
+    ds = SampleDataset(subset='validation', full_set=False).get_dataset(1)
     cb = SynthesisCallback(ds)
     cb.on_epoch_end(1)
