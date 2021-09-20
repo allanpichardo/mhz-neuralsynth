@@ -33,7 +33,9 @@ def main():
     tran_dataset = SampleDataset(vector_size=vector_size, subset='train').get_dataset(batch_size=batch_size)
     val_dataset = SampleDataset(vector_size=vector_size, subset='validation').get_dataset(batch_size=batch_size)
 
-    autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate), metrics=['accuracy'])
+    autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+                        metrics=['accuracy'],
+                        loss='categorical_crossentropy')
 
     autoencoder.fit(tran_dataset, validation_data=val_dataset, epochs=epochs, callbacks=[
         SynthesisCallback(tran_dataset, vector_size=vector_size, sr=sr, logdir=logdir),
