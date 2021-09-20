@@ -19,9 +19,6 @@ class SampleVAE(tf.keras.Model):
         super(SampleVAE, self).__init__(**kwargs)
         self.vector_size = vector_size
         self.latent_dim = latent_dim
-        self.total_loss_tracker = tf.keras.metrics.Mean(name="total_loss")
-        self.prediction_loss_tracker = tf.keras.metrics.Mean(name="prediction_loss")
-        self.kl_loss_tracker = tf.keras.metrics.Mean(name="kl_loss")
 
         self.encoder = self._get_encoder()
         self.decoder = self._get_decoder()
@@ -96,41 +93,6 @@ class SampleVAE(tf.keras.Model):
         z = self.encoder(inputs)
         y_pred = self.decoder([inputs, z])
         return y_pred
-
-    @property
-    def metrics(self):
-        return [
-            self.total_loss_tracker,
-            self.prediction_loss_tracker,
-            self.kl_loss_tracker,
-        ]
-
-    def train_step(self, data):
-        if isinstance(data, tuple):
-            x = data[0]
-            y = data[1]
-        with tf.GradientTape() as tape:
-            z_mean, z_log_var, z = self.encoder(x)
-            completion = self.decoder(z)
-
-            prediction_loss = tf.keras.losses.Huber()(y, completion)
-
-            coefficient = 0.0001
-            kl_loss = -0.5 * (1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
-            kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=1)) * coefficient
-            total_loss = kl_loss + prediction_loss
-
-        grads = tape.gradient(total_loss, self.trainable_weights)
-        self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
-        self.total_loss_tracker.update_state(total_loss)
-        self.prediction_loss_tracker.update_state(prediction_loss)
-        self.kl_loss_tracker.update_state(kl_loss)
-
-        return {
-            "loss": self.total_loss_tracker.result(),
-            "prediction_loss": self.prediction_loss_tracker.result(),
-            "kl_loss": self.kl_loss_tracker.result(),
-        }
 
 
 if __name__=='__main__':
