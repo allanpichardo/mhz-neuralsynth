@@ -11,11 +11,11 @@ def main():
     version = 1
     sr = 16000
     batch_size = 64
-    vector_size = 64
+    vector_size = 128
     filters = 32
     latent_dim = 8
     epochs = 2000
-    learning_rate = 0.001
+    learning_rate = 0.0001
 
     logdir = os.path.join(os.path.dirname(__file__), 'logs', datetime.now().strftime("%Y%m%d-%H%M%S"))
 
@@ -41,7 +41,7 @@ def main():
     autoencoder.fit(tran_dataset, validation_data=val_dataset, epochs=epochs, callbacks=[
         # SynthesisCallback(tran_dataset, vector_size=vector_size, sr=sr, logdir=logdir),
         tf.keras.callbacks.TensorBoard(log_dir=logdir),
-        tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, verbose=1)
+        tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, verbose=1)
     ])
 
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'models')):
