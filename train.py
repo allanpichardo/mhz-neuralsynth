@@ -10,8 +10,8 @@ from models import SampleVAE
 def main():
     version = 1
     sr = 16000
-    batch_size = 100
-    vector_size = 256
+    batch_size = 64
+    vector_size = 128
     latent_dim = 16
     epochs = 2000
     learning_rate = 0.001
