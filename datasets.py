@@ -32,17 +32,17 @@ class SampleDataset:
         )  # uses data as soon as it streams in, rather than in its original order
         self.dataset = dataset.map(
             self._read_tfrecord, num_parallel_calls=tf.data.AUTOTUNE
-        ).cache().map(
+        ).map(
             self._split_into_chunks, num_parallel_calls=tf.data.AUTOTUNE
         ).flat_map(
             self._flatten
-        ).cache().map(
+        ).map(
             self._quantize, num_parallel_calls=tf.data.AUTOTUNE
-        ).cache().map(
+        ).map(
             self._y_to_one_hot_byte, num_parallel_calls=tf.data.AUTOTUNE
-        ).cache().map(
+        ).map(
             self._normalize, num_parallel_calls=tf.data.AUTOTUNE
-        )
+        ).cache()
 
     def _y_to_one_hot_byte(self, x, y):
         layer = tf.keras.layers.CategoryEncoding(num_tokens=256, output_mode="one_hot")
@@ -69,7 +69,7 @@ class SampleDataset:
 
             X = tf.concat([X, x], 0)
             Y = tf.concat([Y, y], 0)
-            start += 1
+            start += self.vector_size
 
         return X, Y
 
