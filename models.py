@@ -15,10 +15,11 @@ class Sampling(layers.Layer):
 
 class SampleVAE(tf.keras.Model):
 
-    def __init__(self, vector_size=128, latent_dim=16, **kwargs):
+    def __init__(self, vector_size=128, latent_dim=16, filters=32, **kwargs):
         super(SampleVAE, self).__init__(**kwargs)
         self.vector_size = vector_size
         self.latent_dim = latent_dim
+        self.filters = filters
 
         self.encoder = self._get_encoder()
         self.decoder = self._get_decoder()
@@ -34,11 +35,11 @@ class SampleVAE(tf.keras.Model):
 
     def _get_encoder(self):
         inputs = layers.Input(shape=(self.vector_size, 1))
-        x = layers.Conv1D(32, 3, padding='same')(inputs)
+        x = layers.Conv1D(self.filters, 3, padding='same')(inputs)
         for i in range(3):
             dilation = 1
             for j in range(10):
-                x = self._encoding_residual_block(x, filters=32, dilation_rate=dilation)
+                x = self._encoding_residual_block(x, filters=self.filters, dilation_rate=dilation)
                 dilation *= 2
 
         x = layers.Conv1D(self.latent_dim, 1, padding='same')(x)
@@ -56,7 +57,7 @@ class SampleVAE(tf.keras.Model):
         tan = layers.Activation('tanh')(x)
         sig = layers.Activation('sigmoid')(x)
         x = layers.Multiply()([tan, sig])
-        skip = layers.Conv1D(32, 1, padding='same')(x)
+        skip = layers.Conv1D(filters, 1, padding='same')(x)
         resid = layers.Add()([skip, x0])
         return resid, skip
 
@@ -64,7 +65,7 @@ class SampleVAE(tf.keras.Model):
         signal_input = layers.Input(shape=(self.vector_size, 1))
         latent_input = layers.Input(shape=(self.vector_size//self.latent_dim, self.latent_dim))
 
-        x = layers.Conv1D(32, 3, padding='causal')(signal_input)
+        x = layers.Conv1D(self.filters, 3, padding='causal')(signal_input)
 
         z = layers.UpSampling1D(self.latent_dim)(latent_input)
         z_dimensions = tf.split(z, self.latent_dim, axis=-1)
@@ -73,17 +74,17 @@ class SampleVAE(tf.keras.Model):
         skip_connections = []
         for i in range(self.latent_dim):
             z_bias = z_dimensions[i]
-            z_bias = layers.Conv1D(32, 3, padding='causal')(z_bias)
+            z_bias = layers.Conv1D(self.filters, 3, padding='causal')(z_bias)
 
-            x, skip = self._wavenet_residual_block(x, filters=32, dilation_rate=dilation, bias=z_bias, i=i)
+            x, skip = self._wavenet_residual_block(x, filters=self.filters, dilation_rate=dilation, bias=z_bias, i=i)
             skip_connections.append(skip)
             dilation *= 2
 
         x = layers.Add()(skip_connections)
         x = layers.ELU()(x)
-        x = layers.Conv1D(32, 1, padding='same', strides=2)(x)
+        x = layers.Conv1D(self.filters, 1, padding='same', strides=2)(x)
         x = layers.ELU()(x)
-        x = layers.Conv1D(32, 1, padding='same', strides=2)(x)
+        x = layers.Conv1D(self.filters, 1, padding='same', strides=2)(x)
         x = layers.Flatten()(x)
         x = layers.Dense(256, activation='softmax')(x)
 
@@ -96,7 +97,7 @@ class SampleVAE(tf.keras.Model):
 
 
 if __name__=='__main__':
-    vae = SampleVAE(vector_size=512, latent_dim=16)
+    vae = SampleVAE(vector_size=64, latent_dim=8, filters=32)
     vae.encoder.summary()
     vae.decoder.summary()
     # vae.summary()

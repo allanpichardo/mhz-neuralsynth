@@ -71,7 +71,7 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
 
         synthesized = self._synthesize(initial_data, sample_length=self.sr)
 
-        tf.io.write_file("epoch-{}.wav".format(epoch),tf.audio.encode_wav(tf.expand_dims(synthesized[0], 1), self.sr))
+        tf.io.write_file("epoch-{}.wav".format(epoch),tf.audio.encode_wav(synthesized[0], self.sr))
 
         plots = []
         for waveform in synthesized:

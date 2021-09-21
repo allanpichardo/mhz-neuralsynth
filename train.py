@@ -11,8 +11,9 @@ def main():
     version = 1
     sr = 16000
     batch_size = 64
-    vector_size = 512
-    latent_dim = 16
+    vector_size = 64
+    filters = 32
+    latent_dim = 8
     epochs = 2000
     learning_rate = 0.001
 
@@ -21,7 +22,7 @@ def main():
     enc_model_path = os.path.join(os.path.dirname(__file__), 'models', 'enc_mod_v{}'.format(version))
     dec_model_path = os.path.join(os.path.dirname(__file__), 'models', 'dec_mod_v{}'.format(version))
 
-    autoencoder = SampleVAE(vector_size=vector_size,latent_dim=latent_dim)
+    autoencoder = SampleVAE(vector_size=vector_size, latent_dim=latent_dim, filters=filters)
     if os.path.exists(enc_model_path) and os.path.exists(dec_model_path):
         print("Found saved model, loading weights")
         autoencoder.encoder = tf.keras.models.load_model(enc_model_path, compile=False)
