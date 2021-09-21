@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from datasets import SampleDataset
 from models import SampleVAE
 from utils import mu_law_decode
+import sys
 
 
 class SynthesisCallback(tf.keras.callbacks.Callback):
@@ -24,17 +25,18 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
         return a / 255.0
 
     def _synthesize(self, initial_data, sample_length=16000):
-        # model = SampleVAE()
+        model = SampleVAE()
         passes = sample_length - self.vector_size
         wav_data = tf.identity(initial_data)
         for i in range(passes):
             signal_input = wav_data[:, -self.vector_size:, :]
+            print("Progress: {}%".format(float(i) / float(passes) * 100.0), end="\r", flush=True)
 
-            # z = model.encoder(signal_input)
-            z = self.model.encoder(signal_input)
+            z = model.encoder(signal_input)
+            # z = self.model.encoder(signal_input)
 
-            # next_sample = model.decoder([signal_input, z])
-            next_sample = self.model.decoder([signal_input, z])
+            next_sample = model.decoder([signal_input, z])
+            # next_sample = self.model.decoder([signal_input, z])
 
             next_sample = self._reconstruct(next_sample)
             wav_data = tf.concat([wav_data, next_sample], axis=1)

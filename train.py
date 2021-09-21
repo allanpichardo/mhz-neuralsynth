@@ -13,7 +13,7 @@ def main():
     batch_size = 64
     vector_size = 256
     latent_dim = 16
-    epochs = 200
+    epochs = 2000
     learning_rate = 0.001
 
     logdir = os.path.join(os.path.dirname(__file__), 'logs', datetime.now().strftime("%Y%m%d-%H%M%S"))
@@ -38,8 +38,8 @@ def main():
                         loss='categorical_crossentropy')
 
     autoencoder.fit(tran_dataset, validation_data=val_dataset, epochs=epochs, callbacks=[
-        SynthesisCallback(tran_dataset, vector_size=vector_size, sr=sr, logdir=logdir),
-        tf.keras.callbacks.TensorBoard(log_dir=logdir, embeddings_freq=1),
+        # SynthesisCallback(tran_dataset, vector_size=vector_size, sr=sr, logdir=logdir),
+        tf.keras.callbacks.TensorBoard(log_dir=logdir),
         tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, verbose=1)
     ])
 
