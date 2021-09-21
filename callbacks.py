@@ -20,21 +20,21 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
         a = tf.argmax(one_hot, axis=1)
         a = tf.cast(a, tf.float32)
         a = tf.expand_dims(a, 1)
-        a = tf.expand_dims(a, 0)
+        a = tf.expand_dims(a, 2)
         return a / 255.0
 
     def _synthesize(self, initial_data, sample_length=16000):
-        model = SampleVAE()
+        # model = SampleVAE()
         passes = sample_length - self.vector_size
         wav_data = tf.identity(initial_data)
         for i in range(passes):
             signal_input = wav_data[:, -self.vector_size:, :]
 
-            z = model.encoder(signal_input)
-            # z = self.model.encoder(signal_input)
+            # z = model.encoder(signal_input)
+            z = self.model.encoder(signal_input)
 
-            next_sample = model.decoder([signal_input, z])
-            # next_sample = self.model.decoder([signal_input, z])
+            # next_sample = model.decoder([signal_input, z])
+            next_sample = self.model.decoder([signal_input, z])
 
             next_sample = self._reconstruct(next_sample)
             wav_data = tf.concat([wav_data, next_sample], axis=1)
@@ -83,6 +83,6 @@ class SynthesisCallback(tf.keras.callbacks.Callback):
 
 
 if __name__ == '__main__':
-    ds = SampleDataset(subset='validation', full_set=False).get_dataset(1)
+    ds = SampleDataset(subset='validation', full_set=False).get_dataset(16).take(1)
     cb = SynthesisCallback(ds)
     cb.on_epoch_end(1)
