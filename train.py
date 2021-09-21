@@ -11,7 +11,7 @@ def main():
     version = 1
     sr = 16000
     batch_size = 64
-    vector_size = 128
+    vector_size = 512
     latent_dim = 16
     epochs = 2000
     learning_rate = 0.001
