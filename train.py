@@ -10,7 +10,7 @@ from models import SampleVAE
 def main():
     version = 1
     sr = 16000
-    batch_size = 64
+    batch_size = 100
     vector_size = 256
     latent_dim = 16
     epochs = 2000
@@ -30,8 +30,8 @@ def main():
     autoencoder.encoder.summary()
     autoencoder.decoder.summary()
 
-    tran_dataset = SampleDataset(vector_size=vector_size, subset='train').get_dataset(batch_size=batch_size).take(1)
-    val_dataset = SampleDataset(vector_size=vector_size, subset='validation').get_dataset(batch_size=batch_size).take(1)
+    tran_dataset = SampleDataset(vector_size=vector_size, subset='train').get_dataset(batch_size=batch_size)
+    val_dataset = SampleDataset(vector_size=vector_size, subset='validation').get_dataset(batch_size=batch_size)
 
     autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
                         metrics=['accuracy'],
