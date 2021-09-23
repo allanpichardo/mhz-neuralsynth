@@ -9,9 +9,10 @@ from sklearn.model_selection import train_test_split
 
 class SampleDataset:
 
-    def __init__(self, vector_size=128, data_sample_length=8000, subset='train', full_set=True):
+    def __init__(self, vector_size=128, data_sample_length=8000, subset='train', full_set=True, stride=128):
         self.vector_size = vector_size
         self.data_sample_length = data_sample_length
+        self.stride = stride
 
         dataset_path = os.path.join(os.path.dirname(__file__), 'data', 'train*' if subset == 'train' else 'validation*')
 
@@ -69,7 +70,7 @@ class SampleDataset:
 
             X = tf.concat([X, x], 0)
             Y = tf.concat([Y, y], 0)
-            start += self.vector_size
+            start += self.stride
 
         return X, Y
 
@@ -95,8 +96,8 @@ class SampleDataset:
         example = tf.io.parse_single_example(raw, feature_description)
         return example
 
-    def get_dataset(self, batch_size=16):
-        return self.dataset.shuffle(10240).prefetch(tf.data.AUTOTUNE).batch(batch_size)
+    def get_dataset(self, batch_size=16, shuffle_buffer=102400):
+        return self.dataset.shuffle(shuffle_buffer).prefetch(tf.data.AUTOTUNE).batch(batch_size)
 
 
 class SampleDatasetBuilder:
