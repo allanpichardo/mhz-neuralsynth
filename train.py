@@ -15,7 +15,7 @@ def main():
     filters = 32
     latent_dim = 8
     epochs = 2000
-    learning_rate = 0.0001
+    learning_rate = 0.00001
 
     logdir = os.path.join(os.path.dirname(__file__), 'logs', datetime.now().strftime("%Y%m%d-%H%M%S"))
 
