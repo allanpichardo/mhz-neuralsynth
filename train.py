@@ -10,9 +10,9 @@ from models import SampleVAE
 def main():
     version = 1
     sr = 16000
-    batch_size = 8
-    vector_size = 256
-    stride = int(vector_size // 2) #make this smaller
+    batch_size = 16
+    vector_size = 2048
+    stride = int(vector_size / 4) #make this smaller
     filters = 64
     latent_dim = 16
     epochs = 2000
