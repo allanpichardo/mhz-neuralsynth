@@ -10,7 +10,7 @@ from models import SampleVAE
 def main():
     version = 1
     sr = 16000
-    batch_size = 64
+    batch_size = 32
     vector_size = 128
     stride = vector_size // 2 #make this smaller
     filters = 32
@@ -32,8 +32,8 @@ def main():
     autoencoder.encoder.summary()
     autoencoder.decoder.summary()
 
-    tran_dataset = SampleDataset(vector_size=vector_size, subset='train', stride=stride).get_dataset(batch_size=batch_size)
-    val_dataset = SampleDataset(vector_size=vector_size, subset='validation', stride=stride).get_dataset(batch_size=batch_size)
+    tran_dataset = SampleDataset(vector_size=vector_size, subset='train', stride=stride).get_dataset(batch_size=batch_size, shuffle_buffer=2000000)
+    val_dataset = SampleDataset(vector_size=vector_size, subset='validation', stride=stride).get_dataset(batch_size=batch_size, shuffle_buffer=200)
 
     autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
                         metrics=['accuracy'],

@@ -185,7 +185,7 @@ class SampleDatasetBuilder:
 
 
 if __name__ == '__main__':
-    ds = SampleDataset(subset='validation')
+    ds = SampleDataset(subset='validation', stride=64)
     dataset = ds.get_dataset()
 
     for sample in dataset.take(1):
