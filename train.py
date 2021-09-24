@@ -12,7 +12,7 @@ def main():
     sr = 16000
     batch_size = 32
     vector_size = 128
-    stride = vector_size // 2 #make this smaller
+    stride = vector_size // 1.25 #make this smaller
     filters = 32
     latent_dim = 8
     epochs = 2000
