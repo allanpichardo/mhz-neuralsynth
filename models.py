@@ -97,7 +97,7 @@ class SampleVAE(tf.keras.Model):
 
 
 if __name__=='__main__':
-    vae = SampleVAE(vector_size=64, latent_dim=8, filters=32)
+    vae = SampleVAE(vector_size=32, latent_dim=8, filters=64)
     vae.encoder.summary()
     vae.decoder.summary()
     # vae.summary()

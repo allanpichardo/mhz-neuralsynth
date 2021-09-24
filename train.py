@@ -11,10 +11,10 @@ def main():
     version = 1
     sr = 16000
     batch_size = 16
-    vector_size = 2048
-    stride = int(vector_size / 4) #make this smaller
+    vector_size = 32
+    stride = int(vector_size) #make this smaller
     filters = 64
-    latent_dim = 16
+    latent_dim = 8
     epochs = 2000
     learning_rate = 0.001
 
@@ -32,7 +32,7 @@ def main():
     autoencoder.encoder.summary()
     autoencoder.decoder.summary()
 
-    tran_dataset = SampleDataset(vector_size=vector_size, subset='train', stride=stride).get_dataset(batch_size=batch_size, shuffle_buffer=60000)
+    tran_dataset = SampleDataset(vector_size=vector_size, subset='train', stride=stride).get_dataset(batch_size=batch_size, shuffle_buffer=102400)
     val_dataset = SampleDataset(vector_size=vector_size, subset='validation', stride=stride).get_dataset(batch_size=batch_size, shuffle_buffer=200)
 
     autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
