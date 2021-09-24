@@ -10,13 +10,13 @@ from models import SampleVAE
 def main():
     version = 1
     sr = 16000
-    batch_size = 32
-    vector_size = 128
-    stride = int(vector_size // 1.25) #make this smaller
-    filters = 32
-    latent_dim = 8
+    batch_size = 64
+    vector_size = 256
+    stride = 128 #make this smaller
+    filters = 64
+    latent_dim = 16
     epochs = 2000
-    learning_rate = 0.00001
+    learning_rate = 0.001
 
     logdir = os.path.join(os.path.dirname(__file__), 'logs', datetime.now().strftime("%Y%m%d-%H%M%S"))
 
@@ -32,7 +32,7 @@ def main():
     autoencoder.encoder.summary()
     autoencoder.decoder.summary()
 
-    tran_dataset = SampleDataset(vector_size=vector_size, subset='train', stride=stride).get_dataset(batch_size=batch_size, shuffle_buffer=2000000)
+    tran_dataset = SampleDataset(vector_size=vector_size, subset='train', stride=stride).get_dataset(batch_size=batch_size, shuffle_buffer=60000)
     val_dataset = SampleDataset(vector_size=vector_size, subset='validation', stride=stride).get_dataset(batch_size=batch_size, shuffle_buffer=200)
 
     autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
@@ -42,7 +42,9 @@ def main():
     autoencoder.fit(tran_dataset, validation_data=val_dataset, epochs=epochs, callbacks=[
         # SynthesisCallback(tran_dataset, vector_size=vector_size, sr=sr, logdir=logdir),
         tf.keras.callbacks.TensorBoard(log_dir=logdir),
-        tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, verbose=1)
+        tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, verbose=1),
+        tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
+                          patience=5, min_lr=0.00001)
     ])
 
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'models')):
