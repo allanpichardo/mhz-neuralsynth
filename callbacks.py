@@ -40,8 +40,9 @@ class SpectrogramCallback(tf.keras.callbacks.Callback):
             tf.summary.image("Output Spectrogram", out_normed, step=epoch, max_outputs=4)
 
     def _rescale(self, x):
-        return (x - tf.math.reduce_min(x, axis=(1, 2))) / (
-                    tf.reduce_max(x, axis=(1, 2)) - tf.reduce_min(x, axis=(1, 2)))
+        min = tf.math.reduce_min(x)
+        max = tf.math.reduce_max(x)
+        return (x - min) / (max - min)
 
 
 class SynthesisCallback(tf.keras.callbacks.Callback):
