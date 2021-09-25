@@ -1,10 +1,88 @@
 import tensorflow as tf
+import tensorflow.keras as keras
 import librosa
 import os
 import glob
 import numpy as np
 from utils import mu_law_encode
 from sklearn.model_selection import train_test_split
+import kapre
+import json
+
+
+class SpectrogramDataset:
+
+    def __init__(self, sample_rate=16000, n_fft=2048, subset='train', data_sample_length=8000, n_mels=128):
+        self.sample_rate = sample_rate
+        self.n_fft = n_fft
+        self.data_sample_length = data_sample_length
+        self.n_mels = n_mels
+
+        dataset_path = os.path.join(os.path.dirname(__file__), 'data', 'train*' if subset == 'train' else 'validation*')
+
+        ignore_order = tf.data.Options()
+        ignore_order.experimental_deterministic = False  # disable order, increase speed
+        dataset = tf.data.TFRecordDataset(
+            glob.glob(dataset_path),
+            compression_type='ZLIB'
+        )  # automatically interleaves reads from multiple files
+        dataset = dataset.with_options(
+            ignore_order
+        )  # uses data as soon as it streams in, rather than in its original order
+
+        self.dataset = dataset.map(
+            self._read_tfrecord, num_parallel_calls=tf.data.AUTOTUNE
+        ).map(
+            self._wav_normalize, num_parallel_calls=tf.data.AUTOTUNE
+        ).map(
+            self._to_log_mel_spectrogram, num_parallel_calls=tf.data.AUTOTUNE
+        ).cache()
+
+    def _wav_normalize(self, example):
+        wav = example['x']
+        mean = tf.math.reduce_mean(wav, axis=0)
+        std = tf.math.reduce_std(wav, axis=0)
+        return (wav - mean) / std
+
+    def _to_log_mel_spectrogram(self, x):
+        data = x
+        filterbank_kwargs = {
+            'sample_rate': self.sample_rate,
+            'n_freq': self.n_fft // 2 + 1,
+            'n_mels': self.n_mels,
+            'f_min': 0.0,
+            'f_max': None,
+            'htk': False,
+            'norm': 'slaney',
+        }
+
+        m = tf.expand_dims(data, 0)
+        m = kapre.STFTTflite(n_fft=self.n_fft, input_data_format='channels_last', output_data_format='channels_last')(m)
+        m = kapre.MagnitudeTflite()(m)
+        m = kapre.ApplyFilterbank('mel', filterbank_kwargs=filterbank_kwargs, data_format='channels_last')(m)
+        m = kapre.MagnitudeToDecibel()(m)
+        m = tf.squeeze(m, axis=0)
+        return m, m
+
+    def _read_tfrecord(self, raw):
+        feature_description = {
+            'x': tf.io.FixedLenFeature([self.data_sample_length, 1], tf.float32,
+                                       default_value=np.zeros((self.data_sample_length,))),
+        }
+
+        example = tf.io.parse_single_example(raw, feature_description)
+        return example
+
+    def get_dataset(self, batch_size=16, shuffle_buffer=102400):
+        return self.dataset.shuffle(shuffle_buffer).prefetch(tf.data.AUTOTUNE).batch(batch_size)
+
+    def get_normalization_layer(self):
+        norm_layer = keras.layers.Normalization(name='normalization')
+        print("Adapting normalization layer...")
+        dataset = self.get_dataset(shuffle_buffer=1).map(lambda x, y: x)
+        norm_layer.adapt(dataset)
+        print("Done.")
+        return norm_layer
 
 
 class SampleDataset:
@@ -185,11 +263,15 @@ class SampleDatasetBuilder:
 
 
 if __name__ == '__main__':
-    ds = SampleDataset(subset='validation', stride=64)
-    dataset = ds.get_dataset()
+    tf.data.experimental.enable_debug_mode()
 
-    for sample in dataset.take(1):
-        print(sample)
+    st = SpectrogramDataset()
+    norm_layer = st.get_normalization_layer()
+
+    ds = st.get_dataset(shuffle_buffer=1)
+    for X, Y in ds:
+        print(norm_layer(X))
+        exit(0)
 
     # builder = SampleDatasetBuilder()
     # builder.save_record_file(subset='train')

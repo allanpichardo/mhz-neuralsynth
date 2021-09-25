@@ -2,19 +2,19 @@ import tensorflow as tf
 import os
 from datetime import datetime
 
-from callbacks import SynthesisCallback
-from datasets import SampleDataset
-from models import SampleVAE
+from callbacks import SynthesisCallback, SpectrogramCallback
+from datasets import SpectrogramDataset
+from models import SpectrogramVAE, reconstruction_loss
 
 
 def main():
-    version = 1
+    version = 'melspec_1'
     sr = 16000
     batch_size = 16
     vector_size = 32
     stride = int(vector_size) #make this smaller
-    filters = 64
-    latent_dim = 8
+    filters = 32
+    latent_dim = 16
     epochs = 2000
     learning_rate = 0.001
 
@@ -23,7 +23,12 @@ def main():
     enc_model_path = os.path.join(os.path.dirname(__file__), 'models', 'enc_mod_v{}'.format(version))
     dec_model_path = os.path.join(os.path.dirname(__file__), 'models', 'dec_mod_v{}'.format(version))
 
-    autoencoder = SampleVAE(vector_size=vector_size, latent_dim=latent_dim, filters=filters)
+    spec_train = SpectrogramDataset(sample_rate=sr, subset='train')
+    normalization_layer = spec_train.get_normalization_layer()
+
+    spec_val = SpectrogramDataset(sample_rate=sr, subset='validation')
+
+    autoencoder = SpectrogramVAE(normalization_layer, latent_dim=latent_dim)
     if os.path.exists(enc_model_path) and os.path.exists(dec_model_path):
         print("Found saved model, loading weights")
         autoencoder.encoder = tf.keras.models.load_model(enc_model_path, compile=False)
@@ -32,15 +37,16 @@ def main():
     autoencoder.encoder.summary()
     autoencoder.decoder.summary()
 
-    tran_dataset = SampleDataset(vector_size=vector_size, subset='train', stride=stride).get_dataset(batch_size=batch_size, shuffle_buffer=102400)
-    val_dataset = SampleDataset(vector_size=vector_size, subset='validation', stride=stride).get_dataset(batch_size=batch_size, shuffle_buffer=200)
+    tran_dataset = spec_train.get_dataset(batch_size=batch_size, shuffle_buffer=102400)
+    val_dataset = spec_val.get_dataset(batch_size=batch_size, shuffle_buffer=1)
 
     autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
-                        metrics=['accuracy'],
-                        loss='categorical_crossentropy')
+                        metrics=['mse'],
+                        loss='mse')
 
     autoencoder.fit(tran_dataset, validation_data=val_dataset, epochs=epochs, callbacks=[
         # SynthesisCallback(tran_dataset, vector_size=vector_size, sr=sr, logdir=logdir),
+        SpectrogramCallback(val_dataset, sr=sr, logdir=logdir),
         tf.keras.callbacks.TensorBoard(log_dir=logdir),
         tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, verbose=1),
         tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
