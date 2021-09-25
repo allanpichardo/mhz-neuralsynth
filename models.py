@@ -25,7 +25,7 @@ def reconstruction_loss(real, reconstruction):
 
 def spectral_convergence_loss(real, predicted):
     return tf.reduce_mean(
-        tf.math.reduce_euclidean_norm(tf.math.abs(real) - tf.math.abs(predicted)) / tf.math.reduce_euclidean_norm(tf.math.abs(real))
+        tf.norm(tf.math.abs(real) - tf.math.abs(predicted), ord='fro', axis=[1, 2]) / tf.norm(tf.math.abs(real), ord='fro', axis=[1, 2])
     )
 
 
