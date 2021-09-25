@@ -4,7 +4,7 @@ from datetime import datetime
 
 from callbacks import SynthesisCallback, SpectrogramCallback
 from datasets import SpectrogramDataset
-from models import SpectrogramVAE, reconstruction_loss
+from models import SpectrogramVAE, reconstruction_loss, spectral_convergence_loss
 
 
 def main():
@@ -42,7 +42,7 @@ def main():
 
     autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
                         metrics=['mse'],
-                        loss='mse')
+                        loss=spectral_convergence_loss)
 
     autoencoder.fit(tran_dataset, validation_data=val_dataset, epochs=epochs, callbacks=[
         # SynthesisCallback(tran_dataset, vector_size=vector_size, sr=sr, logdir=logdir),

@@ -23,6 +23,12 @@ def reconstruction_loss(real, reconstruction):
     return tf.reduce_mean(tf.reduce_sum(tf.keras.losses.binary_crossentropy(real, reconstruction), axis=(1, 2)))
 
 
+def spectral_convergence_loss(real, predicted):
+    return tf.reduce_mean(
+        tf.math.reduce_euclidean_norm(tf.math.abs(real) - tf.math.abs(predicted)) / tf.math.reduce_euclidean_norm(tf.math.abs(real))
+    )
+
+
 class SpectrogramVAE(tf.keras.Model):
 
     def __init__(self, normalization_layer, spectrogram_shape=(12, 128, 1), latent_dim=16, **kwargs):
