@@ -29,6 +29,15 @@ def spectral_convergence_loss(real, predicted):
     )
 
 
+def log_scale_stft_magnitude_loss(real, predicted):
+    epsilon = 1e-10
+    return tf.reduce_mean(
+        tf.norm(
+            tf.math.log(tf.abs(real) + epsilon) - tf.math.log(tf.abs(predicted) + epsilon)
+        , ord=1, axis=[1, 2])
+    )
+
+
 class SpectrogramVAE(tf.keras.Model):
 
     def __init__(self, normalization_layer, spectrogram_shape=(12, 128, 1), latent_dim=16, **kwargs):

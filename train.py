@@ -4,7 +4,7 @@ from datetime import datetime
 
 from callbacks import SynthesisCallback, SpectrogramCallback
 from datasets import SpectrogramDataset
-from models import SpectrogramVAE, reconstruction_loss, spectral_convergence_loss
+from models import SpectrogramVAE, reconstruction_loss, spectral_convergence_loss, log_scale_stft_magnitude_loss
 
 
 def main():
@@ -16,7 +16,7 @@ def main():
     filters = 32
     latent_dim = 16
     epochs = 2000
-    learning_rate = 0.001
+    learning_rate = 0.0001
 
     logdir = os.path.join(os.path.dirname(__file__), 'logs', datetime.now().strftime("%Y%m%d-%H%M%S"))
 
@@ -42,7 +42,7 @@ def main():
 
     autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
                         metrics=['mse'],
-                        loss=spectral_convergence_loss)
+                        loss=[spectral_convergence_loss, log_scale_stft_magnitude_loss, 'huber'])
 
     autoencoder.fit(tran_dataset, validation_data=val_dataset, epochs=epochs, callbacks=[
         # SynthesisCallback(tran_dataset, vector_size=vector_size, sr=sr, logdir=logdir),
@@ -50,7 +50,7 @@ def main():
         tf.keras.callbacks.TensorBoard(log_dir=logdir),
         tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, verbose=1),
         tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-                          patience=5, min_lr=0.00001)
+                          patience=5, min_lr=0.00001, verbose=1)
     ])
 
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'models')):
