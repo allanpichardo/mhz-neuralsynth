@@ -18,7 +18,6 @@ class SpectrogramCallback(tf.keras.callbacks.Callback):
         self.sr = sr
 
     def on_epoch_end(self, epoch, logs=None):
-        self.model = SpectrogramVAE(keras.layers.Normalization())
         norm = self.model.encoder.get_layer('normalization')
 
         batch = self.dataset
