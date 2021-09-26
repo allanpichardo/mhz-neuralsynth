@@ -1,6 +1,8 @@
-import keras
 import tensorflow as tf
+import tensorflow.keras
 from tensorflow.keras import layers
+
+from losses import kl_divergence
 
 
 class Sampling(layers.Layer):
@@ -15,27 +17,26 @@ class Sampling(layers.Layer):
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
 
-def kl_divergence(z_mean, z_log_var):
-    kl_loss = -0.5 * (1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
-    return tf.reduce_mean(tf.reduce_sum(kl_loss, axis=1))
+class STFTInverter(tensorflow.keras.Model):
 
+    def __init__(self, spectrogram_shape=(122, 129, 1), **kwargs):
+        super(STFTInverter, self).__init__(**kwargs)
+        self.spectrogram_shape = spectrogram_shape
 
-def reconstruction_loss(real, reconstruction):
-    return tf.reduce_mean(tf.reduce_sum(tf.keras.losses.binary_crossentropy(real, reconstruction), axis=(1, 2)))
+    def head(self, x):
+        stride = 2
+        kernel_width = 13
+        i = 1
+        channels = 2 ** (8 - 1)
 
+        while i < 4:
+            x = layers.Conv1DTranspose(channels, kernel_width, strides=stride)(x)
+            x = layers.ELU()(x)
+            i += 1
 
-def spectral_convergence_loss(real, predicted):
-    return tf.reduce_mean(
-        tf.norm(real - predicted, ord='fro', axis=[1, 2]) / tf.norm(real, ord='fro', axis=[1, 2])
-    )
-
-
-def log_scale_stft_magnitude_loss(real, predicted):
-    epsilon = 1e-10
-    return tf.reduce_mean(
-        tf.norm(
-            tf.math.log(real + epsilon) - tf.math.log(predicted + epsilon), ord=1, axis=[1, 2])
-    )
+        x = layers.Conv1DTranspose(1, kernel_width, strides=stride)(x)
+        x = layers.ELU()(x)
+        return x
 
 
 class SpectrogramVAE(tf.keras.Model):
@@ -84,11 +85,11 @@ class SpectrogramVAE(tf.keras.Model):
         x = layers.ZeroPadding2D((3, 0))(x)
         x = layers.Cropping2D(((0, 0), (1, 0)))(x)
 
-        x = layers.TimeDistributed(layers.Conv1D(32, 3, padding='same'))(x)
-        x = self._downsample_block(x, 32)
-        x = self._downsample_block(x, 32)
-        x = self._downsample_block(x, 32)
-        x = self._downsample_block(x, 32)
+        x = layers.TimeDistributed(layers.Conv1D(64, 3, padding='same'))(x)
+        x = self._downsample_block(x, 64)
+        x = self._downsample_block(x, 64)
+        x = self._downsample_block(x, 64)
+        x = self._downsample_block(x, 64)
 
         z_mean = layers.TimeDistributed(layers.Conv1D(1, 1, padding='same', name="z_mean"))(x)
         z_mean = layers.Reshape((8, 8))(z_mean)
@@ -103,15 +104,15 @@ class SpectrogramVAE(tf.keras.Model):
     def _get_decoder(self):
         inputs = layers.Input(shape=(8, 8))
         x = layers.Reshape((8, 8, 1))(inputs)
-        x = self._upsample_blodk(x, 32)
-        x = self._upsample_blodk(x, 32)
-        x = self._upsample_blodk(x, 32)
-        x = self._upsample_blodk(x, 32)
+        x = self._upsample_blodk(x, 64)
+        x = self._upsample_blodk(x, 64)
+        x = self._upsample_blodk(x, 64)
+        x = self._upsample_blodk(x, 64)
 
         x = layers.Cropping2D((3, 0))(x)
         x = layers.ZeroPadding2D(((0, 0), (1, 0)))(x)
 
-        x = layers.TimeDistributed(layers.Conv1D(32, 3, padding='same'))(x)
+        x = layers.TimeDistributed(layers.Conv1D(64, 3, padding='same'))(x)
         out = layers.TimeDistributed(layers.Conv1D(1, 1, padding='same'))(x)
 
         return tf.keras.Model(inputs, out)

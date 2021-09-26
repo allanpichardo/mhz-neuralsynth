@@ -4,7 +4,8 @@ from datetime import datetime
 
 from callbacks import SynthesisCallback, SpectrogramCallback
 from datasets import SpectrogramDataset
-from models import SpectrogramVAE, reconstruction_loss, spectral_convergence_loss, log_scale_stft_magnitude_loss
+from models import SpectrogramVAE
+from losses import reconstruction_loss, spectral_convergence_loss, log_scale_stft_magnitude_loss
 
 
 def main():
