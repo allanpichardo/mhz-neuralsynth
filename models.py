@@ -99,7 +99,7 @@ class SpectrogramVAE(tf.keras.Model):
         x = layers.Activation('elu')(x)
         x = layers.Conv2D(filters, 1, padding='same')(x)
         x = layers.Add()([x, x0])
-        x = layers.AveragePooling2D()(x)
+        x = layers.MaxPooling2D()(x)
         return x
 
     def _upsample_blodk(self, x, filters):
