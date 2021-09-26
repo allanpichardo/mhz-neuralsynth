@@ -8,7 +8,7 @@ from losses import kl_divergence
 class Sampling(layers.Layer):
     """Uses (z_mean, z_log_var) to sample z, the vector encoding the STFT."""
 
-    def call(self, inputs):
+    def call(self, inputs, **kwargs):
         z_mean, z_log_var = inputs
         batch = tf.shape(z_mean)[0]
         dim = tf.shape(z_mean)[1]
@@ -17,26 +17,60 @@ class Sampling(layers.Layer):
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
 
+class Scalar(layers.Layer):
+
+    def __init__(self, initial_value=1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.scalevar = tf.Variable(initial_value=initial_value, trainable=True)
+
+    def call(self, inputs, *args, **kwargs):
+        return tf.math.scalar_mul(self.scalevar, inputs)
+
+
 class STFTInverter(tensorflow.keras.Model):
 
     def __init__(self, spectrogram_shape=(122, 129, 1), **kwargs):
         super(STFTInverter, self).__init__(**kwargs)
         self.spectrogram_shape = spectrogram_shape
+        self.mcnn = self._get_mcnn()
 
-    def head(self, x):
+    def _head(self, x):
         stride = 2
         kernel_width = 13
         i = 1
         channels = 2 ** (8 - 1)
 
-        while i < 4:
+        while i < 3:
             x = layers.Conv1DTranspose(channels, kernel_width, strides=stride)(x)
             x = layers.ELU()(x)
             i += 1
 
         x = layers.Conv1DTranspose(1, kernel_width, strides=stride)(x)
         x = layers.ELU()(x)
+
+        x = Scalar()(x)
         return x
+
+    def _scaled_softsign(self, x):
+        x = tf.keras.activations.softsign(x)
+        return Scalar()(x)
+
+    def _get_mcnn(self):
+        inputs = layers.Input(shape=self.spectrogram_shape)
+        x = layers.Reshape((self.spectrogram_shape[0], self.spectrogram_shape[1]))(inputs)
+
+        heads = []
+        for i in range(8):
+            heads.append(self._head(x))
+
+        x = layers.Concatenate(axis=1)(heads)
+        x = self._scaled_softsign(x)
+        x = layers.Cropping1D((424, 0))(x)
+
+        return tf.keras.Model(inputs, x)
+
+    def call(self, inputs, training=None, mask=None):
+        return self.mcnn(inputs)
 
 
 class SpectrogramVAE(tf.keras.Model):
@@ -61,9 +95,9 @@ class SpectrogramVAE(tf.keras.Model):
     def _downsample_block(self, x, filters):
         x0 = x
         x = layers.Activation('elu')(x)
-        x = layers.TimeDistributed(layers.Conv1D(filters, 3, padding='same', data_format='channels_last'))(x)
+        x = layers.Conv2D(filters, 3, padding='same', data_format='channels_last')(x)
         x = layers.Activation('elu')(x)
-        x = layers.TimeDistributed(layers.Conv1D(filters, 1, padding='same'))(x)
+        x = layers.Conv2D(filters, 1, padding='same')(x)
         x = layers.Add()([x, x0])
         x = layers.AveragePooling2D()(x)
         return x
@@ -71,9 +105,9 @@ class SpectrogramVAE(tf.keras.Model):
     def _upsample_blodk(self, x, filters):
         x0 = x
         x = layers.Activation('elu')(x)
-        x = layers.TimeDistributed(layers.Conv1DTranspose(filters, 3, padding='same', data_format='channels_last'))(x)
+        x = layers.Conv2DTranspose(filters, 3, padding='same', data_format='channels_last')(x)
         x = layers.Activation('elu')(x)
-        x = layers.TimeDistributed(layers.Conv1DTranspose(filters, 1, padding='same'))(x)
+        x = layers.Conv2DTranspose(filters, 1, padding='same')(x)
         x = layers.Add()([x, x0])
         x = layers.UpSampling2D()(x)
         return x
@@ -85,16 +119,16 @@ class SpectrogramVAE(tf.keras.Model):
         x = layers.ZeroPadding2D((3, 0))(x)
         x = layers.Cropping2D(((0, 0), (1, 0)))(x)
 
-        x = layers.TimeDistributed(layers.Conv1D(64, 3, padding='same'))(x)
+        x = layers.Conv2D(64, 3, padding='same')(x)
         x = self._downsample_block(x, 64)
         x = self._downsample_block(x, 64)
         x = self._downsample_block(x, 64)
         x = self._downsample_block(x, 64)
 
-        z_mean = layers.TimeDistributed(layers.Conv1D(1, 1, padding='same', name="z_mean"))(x)
+        z_mean = layers.Conv2D(1, 1, padding='same', name="z_mean")(x)
         z_mean = layers.Reshape((8, 8))(z_mean)
 
-        z_log_var = layers.TimeDistributed(layers.Conv1D(1, 1, padding='same', name="z_log_var"))(x)
+        z_log_var = layers.Conv2D(1, 1, padding='same', name="z_log_var")(x)
         z_log_var = layers.Reshape((8, 8))(z_log_var)
 
         z = Sampling()([z_mean, z_log_var])
@@ -112,8 +146,8 @@ class SpectrogramVAE(tf.keras.Model):
         x = layers.Cropping2D((3, 0))(x)
         x = layers.ZeroPadding2D(((0, 0), (1, 0)))(x)
 
-        x = layers.TimeDistributed(layers.Conv1D(64, 3, padding='same'))(x)
-        out = layers.TimeDistributed(layers.Conv1D(1, 1, padding='same'))(x)
+        x = layers.Conv2DTranspose(64, 3, padding='same')(x)
+        out = layers.Conv2DTranspose(1, 1, padding='same')(x)
 
         return tf.keras.Model(inputs, out)
 
@@ -211,3 +245,5 @@ if __name__ == '__main__':
     vae = SpectrogramVAE(normalization_layer=layers.Normalization())
     vae.encoder.summary()
     vae.decoder.summary()
+    # mcnn = STFTInverter()
+    # mcnn.mcnn.summary()
