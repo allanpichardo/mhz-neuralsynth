@@ -22,3 +22,8 @@ def log_scale_stft_magnitude_loss(real, predicted):
         tf.norm(
             tf.math.log(real + epsilon) - tf.math.log(predicted + epsilon), ord=1, axis=[1, 2])
     )
+
+def stft_magnitude_loss(real, predicted):
+    return tf.reduce_mean(
+        tf.norm(real - predicted, ord=1, axis=[1, 2])
+    )

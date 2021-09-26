@@ -20,7 +20,7 @@ class SpectrogramCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         norm = self.model.encoder.get_layer('normalization')
 
-        batch = self.dataset
+        batch = self.dataset.shuffle(256)
         batch = batch.map(lambda x, y: x).take(1)
         test_batch = []
         for x in batch:
@@ -35,8 +35,8 @@ class SpectrogramCallback(tf.keras.callbacks.Callback):
 
         file_writer = tf.summary.create_file_writer(self.logdir)
         with file_writer.as_default():
-            tf.summary.image("Input Spectrogram", in_normed, step=epoch, max_outputs=4)
-            tf.summary.image("Output Spectrogram", out_normed, step=epoch, max_outputs=4)
+            tf.summary.image("Input Spectrogram", in_normed, step=epoch, max_outputs=6)
+            tf.summary.image("Output Spectrogram", out_normed, step=epoch, max_outputs=6)
 
     def _rescale(self, x):
         min = tf.math.reduce_min(x)
