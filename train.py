@@ -42,7 +42,7 @@ def main():
 
     autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
                         metrics=['mse'],
-                        loss=[spectral_convergence_loss, log_scale_stft_magnitude_loss, 'huber'])
+                        loss=[spectral_convergence_loss, log_scale_stft_magnitude_loss])
 
     autoencoder.fit(tran_dataset, validation_data=val_dataset, epochs=epochs, callbacks=[
         # SynthesisCallback(tran_dataset, vector_size=vector_size, sr=sr, logdir=logdir),

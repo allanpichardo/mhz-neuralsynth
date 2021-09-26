@@ -10,7 +10,8 @@ class Sampling(layers.Layer):
         z_mean, z_log_var = inputs
         batch = tf.shape(z_mean)[0]
         dim = tf.shape(z_mean)[1]
-        epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
+        feats = tf.shape(z_mean)[2]
+        epsilon = tf.keras.backend.random_normal(shape=(batch, dim, feats))
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
 
@@ -25,7 +26,7 @@ def reconstruction_loss(real, reconstruction):
 
 def spectral_convergence_loss(real, predicted):
     return tf.reduce_mean(
-        tf.norm(tf.math.abs(real) - tf.math.abs(predicted), ord='fro', axis=[1, 2]) / tf.norm(tf.math.abs(real), ord='fro', axis=[1, 2])
+        tf.norm(real - predicted, ord='fro', axis=[1, 2]) / tf.norm(real, ord='fro', axis=[1, 2])
     )
 
 
@@ -33,38 +34,45 @@ def log_scale_stft_magnitude_loss(real, predicted):
     epsilon = 1e-10
     return tf.reduce_mean(
         tf.norm(
-            tf.math.log(tf.abs(real) + epsilon) - tf.math.log(tf.abs(predicted) + epsilon)
-        , ord=1, axis=[1, 2])
+            tf.math.log(real + epsilon) - tf.math.log(predicted + epsilon), ord=1, axis=[1, 2])
     )
 
 
 class SpectrogramVAE(tf.keras.Model):
 
-    def __init__(self, normalization_layer, spectrogram_shape=(12, 128, 1), latent_dim=16, **kwargs):
+    def __init__(self, normalization_layer, n_fft=256, sample_length=8000, hop_size=64, window_length=256,
+                 latent_dim=16, **kwargs):
         super(SpectrogramVAE, self).__init__(**kwargs)
         self.latent_dim = latent_dim
-        self.spectrogram_shape = spectrogram_shape
+        self.n_fft = n_fft
+        self.sample_length = sample_length
+        self.hop_size = hop_size
+        self.window_length = window_length
         self.normalization_layer = normalization_layer
+
+        bins = int(n_fft // 2) + 1
+        frames = int((sample_length - n_fft) // hop_size) + 1
+        self.spectrogram_shape = (frames, bins, 1)
 
         self.encoder = self._get_encoder()
         self.decoder = self._get_decoder()
 
     def _downsample_block(self, x, filters):
         x0 = x
-        x = layers.Activation('tanh')(x)
-        x = layers.Conv2D(filters, 3, padding='same', data_format='channels_last')(x)
-        x = layers.Activation('tanh')(x)
-        x = layers.Conv2D(filters, 1, padding='same')(x)
+        x = layers.Activation('elu')(x)
+        x = layers.TimeDistributed(layers.Conv1D(filters, 3, padding='same', data_format='channels_last'))(x)
+        x = layers.Activation('elu')(x)
+        x = layers.TimeDistributed(layers.Conv1D(filters, 1, padding='same'))(x)
         x = layers.Add()([x, x0])
         x = layers.AveragePooling2D()(x)
         return x
 
     def _upsample_blodk(self, x, filters):
         x0 = x
-        x = layers.Activation('tanh')(x)
-        x = layers.Conv2DTranspose(filters, 3, padding='same', data_format='channels_last')(x)
-        x = layers.Activation('tanh')(x)
-        x = layers.Conv2DTranspose(filters, 1, padding='same')(x)
+        x = layers.Activation('elu')(x)
+        x = layers.TimeDistributed(layers.Conv1DTranspose(filters, 3, padding='same', data_format='channels_last'))(x)
+        x = layers.Activation('elu')(x)
+        x = layers.TimeDistributed(layers.Conv1DTranspose(filters, 1, padding='same'))(x)
         x = layers.Add()([x, x0])
         x = layers.UpSampling2D()(x)
         return x
@@ -72,25 +80,39 @@ class SpectrogramVAE(tf.keras.Model):
     def _get_encoder(self):
         inputs = layers.Input(shape=self.spectrogram_shape)
         x = self.normalization_layer(inputs)
-        x = layers.Conv2D(32, 3, padding='same')(x)
-        x = self._downsample_block(x, 32)
-        x = self._downsample_block(x, 32)
-        x = layers.Flatten()(x)
 
-        z_mean = layers.Dense(self.latent_dim, name="z_mean")(x)
-        z_log_var = layers.Dense(self.latent_dim, name="z_log_var")(x)
+        x = layers.ZeroPadding2D((3, 0))(x)
+        x = layers.Cropping2D(((0, 0), (1, 0)))(x)
+
+        x = layers.TimeDistributed(layers.Conv1D(32, 3, padding='same'))(x)
+        x = self._downsample_block(x, 32)
+        x = self._downsample_block(x, 32)
+        x = self._downsample_block(x, 32)
+        x = self._downsample_block(x, 32)
+
+        z_mean = layers.TimeDistributed(layers.Conv1D(1, 1, padding='same', name="z_mean"))(x)
+        z_mean = layers.Reshape((8, 8))(z_mean)
+
+        z_log_var = layers.TimeDistributed(layers.Conv1D(1, 1, padding='same', name="z_log_var"))(x)
+        z_log_var = layers.Reshape((8, 8))(z_log_var)
+
         z = Sampling()([z_mean, z_log_var])
 
         return tf.keras.Model(inputs, [z_mean, z_log_var, z])
 
     def _get_decoder(self):
-        inputs = layers.Input(shape=(self.latent_dim,))
-        x = layers.Dense(3 * 32 * 32)(inputs)
-        x = layers.Reshape((3, 32, 32))(x)
+        inputs = layers.Input(shape=(8, 8))
+        x = layers.Reshape((8, 8, 1))(inputs)
         x = self._upsample_blodk(x, 32)
         x = self._upsample_blodk(x, 32)
-        x = layers.Conv2DTranspose(32, 3, padding='same')(x)
-        out = layers.Conv2DTranspose(1, 1, padding='same')(x)
+        x = self._upsample_blodk(x, 32)
+        x = self._upsample_blodk(x, 32)
+
+        x = layers.Cropping2D((3, 0))(x)
+        x = layers.ZeroPadding2D(((0, 0), (1, 0)))(x)
+
+        x = layers.TimeDistributed(layers.Conv1D(32, 3, padding='same'))(x)
+        out = layers.TimeDistributed(layers.Conv1D(1, 1, padding='same'))(x)
 
         return tf.keras.Model(inputs, out)
 

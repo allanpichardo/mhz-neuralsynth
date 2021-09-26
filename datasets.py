@@ -12,9 +12,12 @@ import json
 
 class SpectrogramDataset:
 
-    def __init__(self, sample_rate=16000, n_fft=2048, subset='train', data_sample_length=8000, n_mels=128):
+    def __init__(self, sample_rate=16000, n_fft=256, sample_length=8000, hop_size=64, window_length=256, subset='train', data_sample_length=8000, n_mels=128):
         self.sample_rate = sample_rate
         self.n_fft = n_fft
+        self.sample_length = sample_length
+        self.hop_size = hop_size
+        self.window_length = window_length
         self.data_sample_length = data_sample_length
         self.n_mels = n_mels
 
@@ -35,7 +38,7 @@ class SpectrogramDataset:
         ).map(
             self._wav_normalize, num_parallel_calls=tf.data.AUTOTUNE
         ).map(
-            self._to_log_mel_spectrogram, num_parallel_calls=tf.data.AUTOTUNE
+            self._to_spectrogram, num_parallel_calls=tf.data.AUTOTUNE
         ).cache()
 
     def _wav_normalize(self, example):
@@ -44,22 +47,12 @@ class SpectrogramDataset:
         std = tf.math.reduce_std(wav, axis=0)
         return (wav - mean) / std
 
-    def _to_log_mel_spectrogram(self, x):
+    def _to_spectrogram(self, x):
         data = x
-        filterbank_kwargs = {
-            'sample_rate': self.sample_rate,
-            'n_freq': self.n_fft // 2 + 1,
-            'n_mels': self.n_mels,
-            'f_min': 0.0,
-            'f_max': None,
-            'htk': False,
-            'norm': 'slaney',
-        }
 
         m = tf.expand_dims(data, 0)
-        m = kapre.STFTTflite(n_fft=self.n_fft, input_data_format='channels_last', output_data_format='channels_last')(m)
-        m = kapre.MagnitudeTflite()(m)
-        m = kapre.ApplyFilterbank('mel', filterbank_kwargs=filterbank_kwargs, data_format='channels_last')(m)
+        m = kapre.STFT(n_fft=self.n_fft, win_length=self.window_length, hop_length=self.hop_size, input_data_format='channels_last', output_data_format='channels_last')(m)
+        m = kapre.Magnitude()(m)
         m = kapre.MagnitudeToDecibel()(m)
         m = tf.squeeze(m, axis=0)
         return m, m
@@ -266,11 +259,12 @@ if __name__ == '__main__':
     tf.data.experimental.enable_debug_mode()
 
     st = SpectrogramDataset()
-    norm_layer = st.get_normalization_layer()
+    # norm_layer = st.get_normalization_layer()
 
     ds = st.get_dataset(shuffle_buffer=1)
     for X, Y in ds:
-        print(norm_layer(X))
+        # print(norm_layer(X))
+        print(X)
         exit(0)
 
     # builder = SampleDatasetBuilder()
