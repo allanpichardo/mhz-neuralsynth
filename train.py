@@ -11,7 +11,7 @@ from losses import reconstruction_loss, spectral_convergence_loss, log_scale_stf
 def main():
     version = 'melspec_1'
     sr = 16000
-    batch_size = 16
+    batch_size = 32
     vector_size = 32
     stride = int(vector_size) #make this smaller
     filters = 32
