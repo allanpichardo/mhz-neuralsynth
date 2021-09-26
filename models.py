@@ -95,7 +95,7 @@ class SpectrogramVAE(tf.keras.Model):
     def _downsample_block(self, x, filters):
         x0 = x
         x = layers.Activation('elu')(x)
-        x = layers.Conv2D(filters, 3, padding='same', data_format='channels_last')(x)
+        x = layers.Conv2D(filters, 5, padding='same', data_format='channels_last')(x)
         x = layers.Activation('elu')(x)
         x = layers.Conv2D(filters, 1, padding='same')(x)
         x = layers.Add()([x, x0])
@@ -105,7 +105,7 @@ class SpectrogramVAE(tf.keras.Model):
     def _upsample_blodk(self, x, filters):
         x0 = x
         x = layers.Activation('elu')(x)
-        x = layers.Conv2DTranspose(filters, 3, padding='same', data_format='channels_last')(x)
+        x = layers.Conv2DTranspose(filters, 5, padding='same', data_format='channels_last')(x)
         x = layers.Activation('elu')(x)
         x = layers.Conv2DTranspose(filters, 1, padding='same')(x)
         x = layers.Add()([x, x0])
@@ -119,7 +119,7 @@ class SpectrogramVAE(tf.keras.Model):
         x = layers.ZeroPadding2D((3, 0))(x)
         x = layers.Cropping2D(((0, 0), (1, 0)))(x)
 
-        x = layers.Conv2D(64, 3, padding='same')(x)
+        x = layers.Conv2D(64, 5, padding='same')(x)
         x = self._downsample_block(x, 64)
         x = self._downsample_block(x, 64)
         x = self._downsample_block(x, 64)
@@ -146,7 +146,7 @@ class SpectrogramVAE(tf.keras.Model):
         x = layers.Cropping2D((3, 0))(x)
         x = layers.ZeroPadding2D(((0, 0), (1, 0)))(x)
 
-        x = layers.Conv2DTranspose(64, 3, padding='same')(x)
+        x = layers.Conv2DTranspose(64, 5, padding='same')(x)
         out = layers.Conv2DTranspose(1, 1, padding='same')(x)
 
         return tf.keras.Model(inputs, out)
