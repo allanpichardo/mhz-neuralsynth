@@ -71,7 +71,7 @@ class SpectrogramDataset:
         return self.dataset.shuffle(shuffle_buffer).prefetch(tf.data.AUTOTUNE).batch(batch_size)
 
     def get_normalization_layer(self):
-        norm_layer = keras.layers.Normalization(name='normalization', axis=2)
+        norm_layer = keras.layers.Normalization(name='normalization', axis=[1, 2])
         print("Adapting normalization layer...")
         dataset = self.get_dataset(shuffle_buffer=1).map(lambda x, y: x)
         norm_layer.adapt(dataset)
