@@ -9,7 +9,7 @@ from losses import reconstruction_loss, spectral_convergence_loss, log_scale_stf
 
 
 def main():
-    version = 'stft_2'
+    version = 'stft_n2_3'
     sr = 16000
     batch_size = 16
     vector_size = 32
