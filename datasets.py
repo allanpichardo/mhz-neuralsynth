@@ -12,7 +12,7 @@ import json
 
 class SpectrogramDataset:
 
-    def __init__(self, sample_rate=16000, n_fft=256, sample_length=8000, hop_size=64, window_length=256, subset='train', data_sample_length=8000, n_mels=128):
+    def __init__(self, return_original=False, sample_rate=16000, n_fft=256, sample_length=8000, hop_size=64, window_length=256, subset='train', data_sample_length=8000, n_mels=128):
         self.sample_rate = sample_rate
         self.n_fft = n_fft
         self.sample_length = sample_length
@@ -20,6 +20,7 @@ class SpectrogramDataset:
         self.window_length = window_length
         self.data_sample_length = data_sample_length
         self.n_mels = n_mels
+        self.return_original = return_original
 
         dataset_path = os.path.join(os.path.dirname(__file__), 'data', 'train*' if subset == 'train' else 'validation*')
 
@@ -55,7 +56,7 @@ class SpectrogramDataset:
         m = kapre.Magnitude()(m)
         m = kapre.MagnitudeToDecibel()(m)
         m = tf.squeeze(m, axis=0)
-        return m, m
+        return (m, m) if not self.return_original else (m, x)
 
     def _read_tfrecord(self, raw):
         feature_description = {
@@ -258,10 +259,10 @@ class SampleDatasetBuilder:
 if __name__ == '__main__':
     tf.data.experimental.enable_debug_mode()
 
-    st = SpectrogramDataset()
+    st = SpectrogramDataset(n_fft=1024, hop_size=256, window_length=1024)
     # norm_layer = st.get_normalization_layer()
 
-    ds = st.get_dataset(shuffle_buffer=1)
+    ds = st.get_dataset(shuffle_buffer=1).take(1)
     for X, Y in ds:
         # print(norm_layer(X))
         print(X)

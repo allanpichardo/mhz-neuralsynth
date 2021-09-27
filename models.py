@@ -2,6 +2,7 @@ import tensorflow as tf
 import tensorflow.keras
 from tensorflow.keras import layers
 
+from datasets import SpectrogramDataset
 from losses import kl_divergence
 
 
@@ -25,6 +26,21 @@ class Scalar(layers.Layer):
 
     def call(self, inputs, *args, **kwargs):
         return tf.math.scalar_mul(self.scalevar, inputs)
+
+
+class HybridPooling(layers.Layer):
+
+    def __init__(self, pool_size=(2, 2), padding='valid', **kwargs):
+        super().__init__(**kwargs)
+        self.pool_size = pool_size
+        self.padding = padding
+
+    def call(self, inputs, *args, **kwargs):
+        m = layers.MaxPooling2D(self.pool_size, padding=self.padding)(inputs)
+        a = layers.AveragePooling2D(self.pool_size, padding=self.padding)(inputs)
+        x = layers.Concatenate()([m, a])
+        x = layers.Conv2D(int(inputs.shape[-1]), 1, padding='same')(x)
+        return x
 
 
 class STFTInverter(tensorflow.keras.Model):
@@ -241,9 +257,19 @@ class SampleVAE(tf.keras.Model):
         return y_pred
 
 
+def get_test_data(batch_size=1):
+    n = tf.random.normal((122, 129, 1))
+    return tf.expand_dims(n, 0)
+
+
 if __name__ == '__main__':
-    vae = SpectrogramVAE(normalization_layer=layers.Normalization())
-    vae.encoder.summary()
-    vae.decoder.summary()
-    # mcnn = STFTInverter()
-    # mcnn.mcnn.summary()
+    # vae = SpectrogramVAE(normalization_layer=layers.Normalization())
+    # vae.encoder.summary()
+    # vae.decoder.summary()
+    mcnn = STFTInverter()
+    mcnn.mcnn.summary()
+
+    ds = get_test_data()
+    out = mcnn.mcnn(ds)
+
+    print(out)
