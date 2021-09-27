@@ -30,16 +30,17 @@ class Scalar(layers.Layer):
 
 class HybridPooling(layers.Layer):
 
-    def __init__(self, pool_size=(2, 2), padding='valid', **kwargs):
+    def __init__(self, channels, pool_size=(2, 2), padding='valid', **kwargs):
         super().__init__(**kwargs)
         self.pool_size = pool_size
         self.padding = padding
+        self.channels = channels
 
     def call(self, inputs, *args, **kwargs):
         m = layers.MaxPooling2D(self.pool_size, padding=self.padding)(inputs)
         a = layers.AveragePooling2D(self.pool_size, padding=self.padding)(inputs)
         x = layers.Concatenate()([m, a])
-        x = layers.Conv2D(int(inputs.shape[-1]), 1, padding='same')(x)
+        x = layers.Conv2D(self.channels, 1, padding='same')(x)
         return x
 
 
@@ -115,7 +116,7 @@ class SpectrogramVAE(tf.keras.Model):
         x = layers.Activation('elu')(x)
         x = layers.Conv2D(filters, 1, padding='same')(x)
         x = layers.Add()([x, x0])
-        x = HybridPooling()(x)
+        x = HybridPooling(filters)(x)
         return x
 
     def _upsample_blodk(self, x, filters):
@@ -266,6 +267,8 @@ if __name__ == '__main__':
     vae = SpectrogramVAE(normalization_layer=layers.Normalization())
     vae.encoder.summary()
     vae.decoder.summary()
+
+    o = vae.encoder(get_test_data())
     # mcnn = STFTInverter()
     # mcnn.mcnn.summary()
     #
