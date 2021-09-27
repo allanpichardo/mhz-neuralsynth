@@ -41,7 +41,7 @@ def main():
     tran_dataset = spec_train.get_dataset(batch_size=batch_size, shuffle_buffer=102400)
     val_dataset = spec_val.get_dataset(batch_size=batch_size)
 
-    autoencoder.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=learning_rate),
+    autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
                         metrics=['mse'],
                         loss=['mse'])
 
