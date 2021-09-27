@@ -2,7 +2,9 @@ import tensorflow as tf
 
 
 def kl_divergence(z_mean, z_log_var):
+    coefficient = 0.5
     kl_loss = -0.5 * (1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
+    kl_loss *= coefficient
     return tf.reduce_mean(tf.reduce_sum(kl_loss, axis=1))
 
 
