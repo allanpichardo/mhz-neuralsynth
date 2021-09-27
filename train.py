@@ -9,7 +9,7 @@ from losses import reconstruction_loss, spectral_convergence_loss, log_scale_stf
 
 
 def main():
-    version = 'melspec_1'
+    version = 'stft_2'
     sr = 16000
     batch_size = 16
     vector_size = 32
@@ -43,7 +43,7 @@ def main():
 
     autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
                         metrics=['mse'],
-                        loss=['mae'])
+                        loss=['mse'])
 
     autoencoder.fit(tran_dataset, validation_data=val_dataset, epochs=epochs, callbacks=[
         # SynthesisCallback(tran_dataset, vector_size=vector_size, sr=sr, logdir=logdir),

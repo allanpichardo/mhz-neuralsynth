@@ -115,7 +115,7 @@ class SpectrogramVAE(tf.keras.Model):
         x = layers.Activation('elu')(x)
         x = layers.Conv2D(filters, 1, padding='same')(x)
         x = layers.Add()([x, x0])
-        x = layers.AveragePooling2D()(x)
+        x = HybridPooling()(x)
         return x
 
     def _upsample_blodk(self, x, filters):
@@ -263,13 +263,13 @@ def get_test_data(batch_size=1):
 
 
 if __name__ == '__main__':
-    # vae = SpectrogramVAE(normalization_layer=layers.Normalization())
-    # vae.encoder.summary()
-    # vae.decoder.summary()
-    mcnn = STFTInverter()
-    mcnn.mcnn.summary()
-
-    ds = get_test_data()
-    out = mcnn.mcnn(ds)
-
-    print(out)
+    vae = SpectrogramVAE(normalization_layer=layers.Normalization())
+    vae.encoder.summary()
+    vae.decoder.summary()
+    # mcnn = STFTInverter()
+    # mcnn.mcnn.summary()
+    #
+    # ds = get_test_data()
+    # out = mcnn.mcnn(ds)
+    #
+    # print(out)
