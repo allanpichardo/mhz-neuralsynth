@@ -41,7 +41,7 @@ def main():
     tran_dataset = spec_train.get_dataset(batch_size=batch_size, shuffle_buffer=102400)
     val_dataset = spec_val.get_dataset(batch_size=batch_size)
 
-    autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+    autoencoder.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=learning_rate),
                         metrics=['mse'],
                         loss=['mse'])
 
@@ -51,7 +51,7 @@ def main():
         tf.keras.callbacks.TensorBoard(log_dir=logdir),
         tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, verbose=1),
         tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-                          patience=5, min_lr=0.00001, verbose=1)
+                          patience=3, min_lr=0.00001, verbose=1)
     ])
 
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'models')):
