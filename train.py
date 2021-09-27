@@ -39,7 +39,7 @@ def main():
     autoencoder.decoder.summary()
 
     tran_dataset = spec_train.get_dataset(batch_size=batch_size, shuffle_buffer=102400)
-    val_dataset = spec_val.get_dataset(batch_size=batch_size, shuffle_buffer=1)
+    val_dataset = spec_val.get_dataset(batch_size=batch_size)
 
     autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
                         metrics=['mse'],
