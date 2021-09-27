@@ -28,21 +28,6 @@ class Scalar(layers.Layer):
         return tf.math.scalar_mul(self.scalevar, inputs)
 
 
-class HybridPooling(layers.Layer):
-
-    def __init__(self, channels, pool_size=(2, 2), padding='valid', **kwargs):
-        super().__init__(**kwargs)
-        self.pool_size = pool_size
-        self.padding = padding
-        self.channels = channels
-
-    def call(self, inputs, *args, **kwargs):
-        m = layers.MaxPooling2D(self.pool_size, padding=self.padding)(inputs)
-        a = layers.AveragePooling2D(self.pool_size, padding=self.padding)(inputs)
-        x = layers.Concatenate()([m, a])
-        x = layers.Conv2D(self.channels, 1, padding='same')(x)
-        return x
-
 
 class STFTInverter(tensorflow.keras.Model):
 
@@ -109,6 +94,14 @@ class SpectrogramVAE(tf.keras.Model):
         self.encoder = self._get_encoder()
         self.decoder = self._get_decoder()
 
+    def _hybrid_pooling(self, inputs, pool_size=(2, 2), padding='valid'):
+        return layers.Conv2D(int(inputs.shape[-1]), 1, padding='same')(
+            layers.Concatenate()([
+                layers.MaxPooling2D(pool_size, padding=padding)(inputs),
+                layers.AveragePooling2D(pool_size, padding=padding)(inputs)
+            ])
+        )
+
     def _downsample_block(self, x, filters):
         x0 = x
         x = layers.Activation('elu')(x)
@@ -116,7 +109,7 @@ class SpectrogramVAE(tf.keras.Model):
         x = layers.Activation('elu')(x)
         x = layers.Conv2D(filters, 1, padding='same')(x)
         x = layers.Add()([x, x0])
-        x = HybridPooling(filters)(x)
+        x = self._hybrid_pooling(x)
         return x
 
     def _upsample_blodk(self, x, filters):
