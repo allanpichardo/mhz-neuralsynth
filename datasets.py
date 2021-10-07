@@ -259,7 +259,7 @@ class SampleDatasetBuilder:
 if __name__ == '__main__':
     tf.data.experimental.enable_debug_mode()
 
-    st = SpectrogramDataset(n_fft=1024, hop_size=256, window_length=1024)
+    st = SpectrogramDataset()
     # norm_layer = st.get_normalization_layer()
 
     ds = st.get_dataset(shuffle_buffer=1).take(1)
