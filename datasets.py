@@ -6,77 +6,7 @@ import glob
 import numpy as np
 from utils import mu_law_encode
 from sklearn.model_selection import train_test_split
-import kapre
 import json
-
-
-class SpectrogramDataset:
-
-    def __init__(self, return_original=False, sample_rate=16000, n_fft=256, sample_length=8000, hop_size=64, window_length=256, subset='train', data_sample_length=8000, n_mels=128):
-        self.sample_rate = sample_rate
-        self.n_fft = n_fft
-        self.sample_length = sample_length
-        self.hop_size = hop_size
-        self.window_length = window_length
-        self.data_sample_length = data_sample_length
-        self.n_mels = n_mels
-        self.return_original = return_original
-
-        dataset_path = os.path.join(os.path.dirname(__file__), 'data', 'train*' if subset == 'train' else 'validation*')
-
-        ignore_order = tf.data.Options()
-        ignore_order.experimental_deterministic = False  # disable order, increase speed
-        dataset = tf.data.TFRecordDataset(
-            glob.glob(dataset_path),
-            compression_type='ZLIB'
-        )  # automatically interleaves reads from multiple files
-        dataset = dataset.with_options(
-            ignore_order
-        )  # uses data as soon as it streams in, rather than in its original order
-
-        self.dataset = dataset.map(
-            self._read_tfrecord, num_parallel_calls=tf.data.AUTOTUNE
-        ).map(
-            self._wav_normalize, num_parallel_calls=tf.data.AUTOTUNE
-        ).map(
-            self._to_spectrogram, num_parallel_calls=tf.data.AUTOTUNE
-        ).cache()
-
-    def _wav_normalize(self, example):
-        wav = example['x']
-        mean = tf.math.reduce_mean(wav, axis=0)
-        std = tf.math.reduce_std(wav, axis=0)
-        return (wav - mean) / std
-
-    def _to_spectrogram(self, x):
-        data = x
-
-        m = tf.expand_dims(data, 0)
-        m = kapre.STFT(n_fft=self.n_fft, win_length=self.window_length, hop_length=self.hop_size, input_data_format='channels_last', output_data_format='channels_last')(m)
-        m = kapre.Magnitude()(m)
-        m = kapre.MagnitudeToDecibel()(m)
-        m = tf.squeeze(m, axis=0)
-        return (m, m) if not self.return_original else (m, x)
-
-    def _read_tfrecord(self, raw):
-        feature_description = {
-            'x': tf.io.FixedLenFeature([self.data_sample_length, 1], tf.float32,
-                                       default_value=np.zeros((self.data_sample_length,))),
-        }
-
-        example = tf.io.parse_single_example(raw, feature_description)
-        return example
-
-    def get_dataset(self, batch_size=16, shuffle_buffer=102400):
-        return self.dataset.shuffle(shuffle_buffer).prefetch(tf.data.AUTOTUNE).batch(batch_size)
-
-    def get_normalization_layer(self):
-        norm_layer = keras.layers.Normalization(name='normalization', axis=[2])
-        print("Adapting normalization layer...")
-        dataset = self.get_dataset(shuffle_buffer=1).map(lambda x, y: x)
-        norm_layer.adapt(dataset)
-        print("Done.")
-        return norm_layer
 
 
 class SampleDataset:
