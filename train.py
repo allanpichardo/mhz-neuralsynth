@@ -13,7 +13,7 @@ def generate_and_save_audio(generator, epoch, test_input, sample_rate=16000):
     for i in range(predictions.shape[0]):
         outdir = os.path.join(os.path.dirname(__file__), 'generated')
         audiofile = os.path.join(outdir, "generated_epoch_{}__{}.wav".format(epoch, i))
-        wav = tf.audio.encode_wav(predictions[i, :, 0], sample_rate)
+        wav = tf.audio.encode_wav(predictions[i, :, :], sample_rate)
         tf.io.write_file(audiofile, wav)
         print("{}%".format((i * 100) / predictions.shape[0]), end="\r", flush=True)
 
@@ -66,8 +66,11 @@ def main():
 
         start = time.time()
 
+        i = 1
+        max = train_dataset.__len__()
         for wav_batch in train_dataset:
             wavegan.train_step(wav_batch)
+            print("Progress: {}%".format((i * 100) / max), end="\r", flush=True)
 
         generate_and_save_audio(wavegan.generator, epoch + 1, seed)
 
