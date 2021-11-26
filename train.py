@@ -23,7 +23,7 @@ def generate_and_save_audio(generator, epoch, test_input, sample_rate=16000):
 def main():
     version = '1'
     sr = 16000
-    batch_size = 16
+    batch_size = 128
     latent_dim = 8
     epochs = 2000
     learning_rate = 0.0001
@@ -72,6 +72,7 @@ def main():
         for wav_batch in train_dataset:
             wavegan.train_step(wav_batch)
             print("Progress: {}%".format((i * 100) / dataset_size), end="\r", flush=True)
+            i += 1
 
         generate_and_save_audio(wavegan.generator, epoch + 1, seed)
 
