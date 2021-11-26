@@ -23,11 +23,11 @@ def generate_and_save_audio(generator, epoch, test_input, sample_rate=16000):
 def main():
     version = '1'
     sr = 16000
-    batch_size = 16
+    batch_size = 32
     latent_dim = 8
     epochs = 2000
     learning_rate = 0.0001
-    num_examples_to_generate = 16
+    num_examples_to_generate = 4
     seed = tf.random.normal([num_examples_to_generate, latent_dim])
 
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'models')):
@@ -70,7 +70,7 @@ def main():
         max = train_dataset.cardinality().numpy()
         for wav_batch in train_dataset:
             wavegan.train_step(wav_batch)
-            print("Progress: {}%".format((i * 100) / max), end="\r", flush=True)
+            print("Progress: {}%".format((i * 100) / max))
 
         generate_and_save_audio(wavegan.generator, epoch + 1, seed)
 
