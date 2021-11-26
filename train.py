@@ -67,7 +67,7 @@ def main():
         start = time.time()
 
         i = 1
-        max = train_dataset.__len__()
+        max = train_dataset.cardinality().numpy()
         for wav_batch in train_dataset:
             wavegan.train_step(wav_batch)
             print("Progress: {}%".format((i * 100) / max), end="\r", flush=True)
