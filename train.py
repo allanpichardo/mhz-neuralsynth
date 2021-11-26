@@ -1,13 +1,10 @@
+import os
 import time
 
 import tensorflow as tf
-import os
-from datetime import datetime
 
-from callbacks import SynthesisCallback, SpectrogramCallback
-from datasets import SpectrogramDataset, SampleDataset
-from models import SpectrogramVAE, WaveGAN
-from losses import reconstruction_loss, spectral_convergence_loss, log_scale_stft_magnitude_loss, stft_magnitude_loss
+from datasets import SampleDataset
+from models import WaveGAN
 
 
 def generate_and_save_audio(generator, epoch, test_input, sample_rate=16000):
