@@ -1,64 +1,88 @@
+import time
+
 import tensorflow as tf
 import os
 from datetime import datetime
 
 from callbacks import SynthesisCallback, SpectrogramCallback
-from datasets import SpectrogramDataset
-from models import SpectrogramVAE
+from datasets import SpectrogramDataset, SampleDataset
+from models import SpectrogramVAE, WaveGAN
 from losses import reconstruction_loss, spectral_convergence_loss, log_scale_stft_magnitude_loss, stft_magnitude_loss
 
 
+def generate_and_save_audio(generator, epoch, test_input, sample_rate=16000):
+    predictions = generator(test_input, training=False)
+
+    for i in range(predictions.shape[0]):
+        outdir = os.path.join(os.path.dirname(__file__), 'generated')
+        audiofile = os.path.join(outdir, "generated_epoch_{}__{}.wav".format(epoch, i))
+        wav = tf.audio.encode_wav(predictions[i, :, 0], sample_rate)
+        tf.io.write_file(audiofile, wav)
+        print("{}%".format((i * 100) / predictions.shape[0]), end="\r", flush=True)
+
+    print("Samples generated.")
+
+
 def main():
-    version = '7'
+    version = '1'
     sr = 16000
     batch_size = 16
-    vector_size = 32
-    stride = int(vector_size) #make this smaller
-    filters = 32
-    latent_dim = 16
+    latent_dim = 8
     epochs = 2000
     learning_rate = 0.0001
-
-    logdir = os.path.join(os.path.dirname(__file__), 'logs', datetime.now().strftime("%Y%m%d-%H%M%S"))
-
-    enc_model_path = os.path.join(os.path.dirname(__file__), 'models', 'enc_mod_v{}'.format(version))
-    dec_model_path = os.path.join(os.path.dirname(__file__), 'models', 'dec_mod_v{}'.format(version))
-
-    spec_train = SpectrogramDataset(sample_rate=sr, subset='train')
-    normalization_layer = spec_train.get_normalization_layer()
-
-    spec_val = SpectrogramDataset(sample_rate=sr, subset='validation')
-
-    autoencoder = SpectrogramVAE(normalization_layer, latent_dim=latent_dim)
-    if os.path.exists(enc_model_path) and os.path.exists(dec_model_path):
-        print("Found saved model, loading weights")
-        autoencoder.encoder = tf.keras.models.load_model(enc_model_path, compile=False)
-        autoencoder.decoder = tf.keras.models.load_model(dec_model_path, compile=False)
-
-    autoencoder.encoder.summary()
-    autoencoder.decoder.summary()
-
-    tran_dataset = spec_train.get_dataset(batch_size=batch_size, shuffle_buffer=102400)
-    val_dataset = spec_val.get_dataset(batch_size=batch_size)
-
-    autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
-                        metrics=['mse'],
-                        loss=['mse'])
-
-    autoencoder.fit(tran_dataset, validation_data=val_dataset, epochs=epochs, callbacks=[
-        # SynthesisCallback(tran_dataset, vector_size=vector_size, sr=sr, logdir=logdir),
-        SpectrogramCallback(val_dataset, sr=sr, logdir=logdir),
-        tf.keras.callbacks.TensorBoard(log_dir=logdir),
-        tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, verbose=1),
-        tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-                          patience=3, min_lr=0.00001, verbose=1)
-    ])
+    num_examples_to_generate = 16
+    seed = tf.random.normal([num_examples_to_generate, latent_dim])
 
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'models')):
         os.makedirs(os.path.join(os.path.dirname(__file__), 'models'), exist_ok=True)
 
-    autoencoder.encoder.save(enc_model_path, save_format='tf', include_optimizer=False)
-    autoencoder.decoder.save(dec_model_path, save_format='tf', include_optimizer=False)
+    generator_model_path = os.path.join(os.path.dirname(__file__), 'models', 'generator_mod_v{}'.format(version))
+    discriminator_model_path = os.path.join(os.path.dirname(__file__), 'models', 'discriminator_mod_v{}'.format(version))
+
+    dataset = SampleDataset()
+
+    wavegan = WaveGAN(batch_size=batch_size, latent_dim=latent_dim)
+
+    if os.path.exists(generator_model_path) and os.path.exists(discriminator_model_path):
+        print("Found saved model, loading weights")
+        wavegan.generator = tf.keras.models.load_model(generator_model_path, compile=False)
+        wavegan.discriminator = tf.keras.models.load_model(discriminator_model_path, compile=False)
+
+    wavegan.generator.summary()
+    wavegan.discriminator.summary()
+
+    train_dataset = dataset.get_dataset(batch_size=batch_size, shuffle_buffer=102400)
+
+    checkpoint_dir = './training_checkpoints'
+    checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
+    checkpoint = tf.train.Checkpoint(generator_optimizer=wavegan.generator_optimizer,
+                                     discriminator_optimizer=wavegan.discriminator_optimizer,
+                                     generator=wavegan.generator,
+                                     discriminator=wavegan.discriminator)
+
+    # training loop here
+    print("Starting training...")
+    print("")
+
+    for epoch in range(epochs):
+        print("Starting epoch {} of {}:".format(epoch, epochs))
+
+        start = time.time()
+
+        for wav_batch in train_dataset:
+            wavegan.train_step(wav_batch)
+
+        generate_and_save_audio(wavegan.generator, epoch + 1, seed)
+
+        if (epoch + 1) % 15 == 0:
+            checkpoint.save(file_prefix=checkpoint_prefix)
+
+        print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
+
+    generate_and_save_audio(wavegan.generator, epochs, seed)
+
+    wavegan.generator.save(generator_model_path, save_format='tf', include_optimizer=False)
+    wavegan.discriminator.save(discriminator_model_path, save_format='tf', include_optimizer=False)
 
 
 if __name__=='__main__':

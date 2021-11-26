@@ -1,5 +1,5 @@
 import tensorflow as tf
-import tensorflow.keras
+import tensorflow.keras as keras
 from tensorflow.keras import layers
 
 from datasets import SpectrogramDataset
@@ -28,8 +28,108 @@ class Scalar(layers.Layer):
         return tf.math.scalar_mul(self.scalevar, inputs)
 
 
+class WaveGAN(keras.Model):
 
-class STFTInverter(tensorflow.keras.Model):
+    def get_config(self):
+        return super(WaveGAN, self).get_config()
+
+    def __init__(self, waveform_shape=(16384, 1), shuffle_amount=2, batch_size=32, latent_dim=8, use_batch_norm=False,
+                 *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._n = shuffle_amount
+        self._batch_size = batch_size
+        self._latent_dim = latent_dim
+        self._waveform_shape = waveform_shape
+        self._use_batch_norm = use_batch_norm
+        self._cross_entropy = keras.losses.BinaryCrossentropy(from_logits=True)
+
+        self.generator_optimizer = keras.optimizers.Adam(learning_rate=1e-4)
+        self.discriminator_optimizer = keras.optimizers.Adam(learning_rate=1e-4)
+        self.generator = self._get_generator()
+        self.discriminator = self._get_discriminator()
+
+    def _get_conv_transpose_block(self, inputs, channels, strides=4):
+        x = layers.Conv1DTranspose(channels, 25, strides=strides, padding='same', use_bias=False)(inputs)
+        x = layers.BatchNormalization()(x) if self._use_batch_norm else x
+        x = layers.LeakyReLU()(x)
+        return x
+
+    def _get_generator(self):
+        inputs = layers.Input((self._latent_dim,))
+        x = layers.Dense(8 * 8 * 256, use_bias=False)(inputs)
+        x = layers.BatchNormalization()(x)
+        x = layers.LeakyReLU()(x)
+        x = layers.Reshape((8 * 8, 256))(x)
+
+        x = self._get_conv_transpose_block(x, 128, strides=1)  # 64
+        x = self._get_conv_transpose_block(x, 64)  # 256
+        x = self._get_conv_transpose_block(x, 32)  # 1024
+        x = self._get_conv_transpose_block(x, 16)  # 4096
+
+        x = layers.Conv1DTranspose(1, 25, strides=4, padding='same', use_bias=False, activation='tanh')(x)  # 16384
+
+        return keras.Model(inputs, x, name='WG_Generator')
+
+    def _phase_shuffle(self, inputs):
+        return tf.roll(inputs, tf.random.uniform([], minval=-self._n, maxval=self._n, dtype=tf.int64), 1)
+
+    def _get_discriminator(self):
+        inputs = layers.Input(self._waveform_shape)
+        x = layers.Conv1D(64, 25, strides=4, padding='same')(inputs)
+        x = layers.LeakyReLU()(x)
+        x = self._phase_shuffle(x)
+
+        x = layers.Conv1D(128, 25, strides=4, padding='same')(x)
+        x = layers.LeakyReLU()(x)
+        x = self._phase_shuffle(x)
+
+        x = layers.Conv1D(256, 25, strides=4, padding='same')(x)
+        x = layers.LeakyReLU()(x)
+        x = self._phase_shuffle(x)
+
+        x = layers.Flatten()(x)
+        x = layers.Dense(1)(x)
+
+        return keras.Model(inputs, x, name='WG_Discriminator')
+
+    def _generator_loss(self, fake_output):
+        return self._cross_entropy(tf.ones_like(fake_output), fake_output)
+
+    def _discriminator_loss(self, real_output, fake_output):
+        real_loss = self._cross_entropy(tf.ones_like(real_output), real_output)
+        fake_loss = self._cross_entropy(tf.zeros_like(fake_output), fake_output)
+        total_loss = real_loss + fake_loss
+        return total_loss
+
+    def set_optimizers(self, generator_optimizer=keras.optimizers.Adam(learning_rate=1e-4),
+                       discriminator_optimizer=keras.optimizers.Adam(learning_rate=1e-4)):
+        self.generator_optimizer = generator_optimizer
+        self.discriminator_optimizer = discriminator_optimizer
+
+    def call(self, inputs, training=None, mask=None):
+        return self.discriminator(inputs, training=training) if training else self.generator(inputs, training=training)
+
+    def train_step(self, data):
+        noise = tf.random.normal([self._batch_size, self._latent_dim])
+
+        with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+            generated_waveforms = self.generator(noise, training=True)
+
+            real_output = self.discriminator(data, training=True)
+            fake_output = self.discriminator(generated_waveforms, training=True)
+
+            gen_loss = self._generator_loss(fake_output)
+            disc_loss = self._discriminator_loss(real_output, fake_output)
+
+        gradients_of_generator = gen_tape.gradient(gen_loss, self.generator.trainable_variables)
+        gradients_of_discriminator = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
+
+        self.generator_optimizer.apply_gradients(zip(gradients_of_generator, self.generator.trainable_variables))
+        self.discriminator_optimizer.apply_gradients(
+            zip(gradients_of_discriminator, self.discriminator.trainable_variables))
+
+
+class STFTInverter(keras.Model):
 
     def __init__(self, spectrogram_shape=(122, 129, 1), **kwargs):
         super(STFTInverter, self).__init__(**kwargs)
@@ -265,15 +365,15 @@ def get_test_data(batch_size=1):
 
 
 if __name__ == '__main__':
-    vae = SpectrogramVAE(normalization_layer=layers.Normalization(), latent_dim=32)
-    vae.encoder.summary()
-    vae.decoder.summary()
+    gan = WaveGAN()
+    generator = gan._get_generator()
+    generator.summary()
 
-    o = vae.encoder(get_test_data())
-    # mcnn = STFTInverter()
-    # mcnn.mcnn.summary()
-    #
-    # ds = get_test_data()
-    # out = mcnn.mcnn(ds)
-    #
-    # print(out)
+    z = tf.random.normal([1, 8])
+    wav = generator([z], training=False)
+
+    discriminator = gan._get_discriminator()
+    discriminator.summary()
+
+    decision = discriminator(wav)
+    print(decision)

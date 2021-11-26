@@ -81,10 +81,8 @@ class SpectrogramDataset:
 
 class SampleDataset:
 
-    def __init__(self, vector_size=128, data_sample_length=8000, subset='train', full_set=True, stride=128):
-        self.vector_size = vector_size
-        self.data_sample_length = data_sample_length
-        self.stride = stride
+    def __init__(self, waveform_length=16384, subset='train', full_set=True):
+        self.data_sample_length = waveform_length
 
         dataset_path = os.path.join(os.path.dirname(__file__), 'data', 'train*' if subset == 'train' else 'validation*')
 
@@ -105,59 +103,7 @@ class SampleDataset:
         )  # uses data as soon as it streams in, rather than in its original order
         self.dataset = dataset.map(
             self._read_tfrecord, num_parallel_calls=tf.data.AUTOTUNE
-        ).map(
-            self._split_into_chunks, num_parallel_calls=tf.data.AUTOTUNE
-        ).flat_map(
-            self._flatten
-        ).map(
-            self._quantize, num_parallel_calls=tf.data.AUTOTUNE
-        ).map(
-            self._y_to_one_hot_byte, num_parallel_calls=tf.data.AUTOTUNE
-        ).map(
-            self._normalize, num_parallel_calls=tf.data.AUTOTUNE
         ).cache()
-
-    def _y_to_one_hot_byte(self, x, y):
-        layer = tf.keras.layers.CategoryEncoding(num_tokens=256, output_mode="one_hot")
-        onehot = layer(y)
-        return x, onehot
-
-    def _split_into_chunks(self, dataset):
-        wav = dataset['x']
-
-        start = 0
-        max_len = self.data_sample_length - (self.vector_size + 1)
-
-        X = tf.reshape(tf.convert_to_tensor(()), [0, self.vector_size, 1])
-        Y = tf.reshape(tf.convert_to_tensor(()), [0, 1])
-
-        while start < max_len:
-            end = start + self.vector_size + 1
-            part = wav[start:end]
-            y = part[-1]
-            y = tf.expand_dims(y, axis=0)
-
-            x = part[:-1]
-            x = tf.expand_dims(x, axis=0)
-
-            X = tf.concat([X, x], 0)
-            Y = tf.concat([Y, y], 0)
-            start += self.stride
-
-        return X, Y
-
-    def _flatten(self, x, y):
-        return tf.data.Dataset.zip((
-            tf.data.Dataset.from_tensor_slices(x),
-            tf.data.Dataset.from_tensor_slices(y)
-        ))
-
-    def _quantize(self, x, y):
-        return mu_law_encode(x), mu_law_encode(y)
-
-    def _normalize(self, x, y):
-        x = tf.cast(x, tf.float32) / 255.0
-        return x, y
 
     def _read_tfrecord(self, raw):
         feature_description = {
@@ -166,7 +112,7 @@ class SampleDataset:
         }
 
         example = tf.io.parse_single_example(raw, feature_description)
-        return example
+        return example['x']
 
     def get_dataset(self, batch_size=16, shuffle_buffer=102400):
         return self.dataset.shuffle(shuffle_buffer).prefetch(tf.data.AUTOTUNE).batch(batch_size)
@@ -259,17 +205,17 @@ class SampleDatasetBuilder:
 if __name__ == '__main__':
     tf.data.experimental.enable_debug_mode()
 
-    st = SpectrogramDataset()
+    st = SampleDataset()
     # norm_layer = st.get_normalization_layer()
 
     ds = st.get_dataset(shuffle_buffer=1).take(1)
-    for X, Y in ds:
+    for X in ds:
         # print(norm_layer(X))
         print(X)
         exit(0)
 
-    # builder = SampleDatasetBuilder()
+    # builder = SampleDatasetBuilder(sample_length=16384)
     # builder.save_record_file(subset='train')
     # builder.save_record_file(subset='validation')
-    # SampleDatasetBuilder.shard_record('data/train.tfrecord', 14)
-    # SampleDatasetBuilder.shard_record('data/validation.tfrecord', 4)
+    # SampleDatasetBuilder.shard_record('data/train.tfrecord', 44)
+    # SampleDatasetBuilder.shard_record('data/validation.tfrecord', 11)
