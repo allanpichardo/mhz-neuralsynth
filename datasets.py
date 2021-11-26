@@ -203,19 +203,19 @@ class SampleDatasetBuilder:
 
 
 if __name__ == '__main__':
-    tf.data.experimental.enable_debug_mode()
+    # tf.data.experimental.enable_debug_mode()
+    #
+    # st = SampleDataset()
+    # # norm_layer = st.get_normalization_layer()
+    #
+    # ds = st.get_dataset(shuffle_buffer=1).take(1)
+    # for X in ds:
+    #     # print(norm_layer(X))
+    #     print(X)
+    #     exit(0)
 
-    st = SampleDataset()
-    # norm_layer = st.get_normalization_layer()
-
-    ds = st.get_dataset(shuffle_buffer=1).take(1)
-    for X in ds:
-        # print(norm_layer(X))
-        print(X)
-        exit(0)
-
-    # builder = SampleDatasetBuilder(sample_length=16384)
-    # builder.save_record_file(subset='train')
-    # builder.save_record_file(subset='validation')
-    # SampleDatasetBuilder.shard_record('data/train.tfrecord', 44)
-    # SampleDatasetBuilder.shard_record('data/validation.tfrecord', 11)
+    builder = SampleDatasetBuilder(sample_length=16384)
+    builder.save_record_file(subset='train')
+    builder.save_record_file(subset='validation')
+    SampleDatasetBuilder.shard_record('data/train.tfrecord', 44)
+    SampleDatasetBuilder.shard_record('data/validation.tfrecord', 11)
