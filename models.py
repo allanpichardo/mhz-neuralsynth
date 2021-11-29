@@ -55,15 +55,15 @@ class WaveGAN(keras.Model):
 
     def _get_generator(self):
         inputs = layers.Input((self._latent_dim,))
-        x = layers.Dense(8 * 8 * 256, use_bias=False)(inputs)
-        x = layers.BatchNormalization()(x)
+        x = layers.Dense(8 * 8 * 512, use_bias=False)(inputs)
+        x = layers.BatchNormalization()(x) if self._use_batch_norm else x
         x = layers.LeakyReLU()(x)
-        x = layers.Reshape((8 * 8, 256))(x)
+        x = layers.Reshape((8 * 8, 512))(x)
 
-        x = self._get_conv_transpose_block(x, 128, strides=1)  # 64
-        x = self._get_conv_transpose_block(x, 64)  # 256
-        x = self._get_conv_transpose_block(x, 32)  # 1024
-        x = self._get_conv_transpose_block(x, 16)  # 4096
+        x = self._get_conv_transpose_block(x, 256, strides=1)  # 64
+        x = self._get_conv_transpose_block(x, 128)  # 256
+        x = self._get_conv_transpose_block(x, 64)  # 1024
+        x = self._get_conv_transpose_block(x, 32)  # 4096
 
         x = layers.Conv1DTranspose(1, 25, strides=4, padding='same', use_bias=False, activation='tanh')(x)  # 16384
 
