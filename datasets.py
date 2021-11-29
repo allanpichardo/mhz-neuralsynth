@@ -97,21 +97,16 @@ class SampleDatasetBuilder:
         with tf.io.TFRecordWriter(filepath, options=SampleDatasetBuilder.get_tfrecord_options()) as writer:
             for i, path in enumerate(self.train_paths if subset != 'validation' else self.test_paths):
                 print("Opening wav file {}".format(path))
-                wav, sr = librosa.load(path, sr=self.sr, res_type="kaiser_fast")
+                wav, sr = librosa.load(path, sr=self.sr, res_type="kaiser_fast", duration=1.0)
                 wav, index = librosa.effects.trim(wav)
-                # f0, voiced_flag, voiced_probs = librosa.pyin(wav, fmin=librosa.note_to_hz('C1'),
-                #                                              fmax=librosa.note_to_hz('C9'))
-                # pitch = np.average(f0[~np.isnan(f0)])
 
-                start = 0
-                while start < wav.size - self.sample_length:
-                    x = wav[start:start + self.sample_length]
-                    x = np.expand_dims(x, 1)
-                    example = self.serialize_example(x)
-                    writer.write(example)
+                x = librosa.util.fix_length(wav, self.sample_length)
+                x = np.expand_dims(x, 1)
+                example = self.serialize_example(x)
+                writer.write(example)
 
-                    start += self.sample_length
-                    print(".", end="")
+                print(".", end="")
+
                 print("\n")
             print("Done. Closing file")
 
@@ -147,5 +142,5 @@ if __name__ == '__main__':
     builder = SampleDatasetBuilder(sample_length=16384)
     builder.save_record_file(subset='train')
     builder.save_record_file(subset='validation')
-    SampleDatasetBuilder.shard_record('data/train.tfrecord', 44)
-    SampleDatasetBuilder.shard_record('data/validation.tfrecord', 11)
+    SampleDatasetBuilder.shard_record('data/train.tfrecord', 3)
+    SampleDatasetBuilder.shard_record('data/validation.tfrecord', 1)
