@@ -127,6 +127,11 @@ class WaveGAN(keras.Model):
         self.discriminator_optimizer.apply_gradients(
             zip(gradients_of_discriminator, self.discriminator.trainable_variables))
 
+        return {
+            'gen_loss': gen_loss,
+            'disc_loss': disc_loss
+        }
+
 
 class STFTInverter(keras.Model):
 

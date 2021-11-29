@@ -69,9 +69,15 @@ def main():
         start = time.time()
 
         i = 1
+        gen_loss_acc = 0
+        disc_loss_acc = 0
         for wav_batch in train_dataset:
-            wavegan.train_step(wav_batch)
-            print("Progress: {}%".format((i * 100) / dataset_size), end="\r", flush=True)
+            losses = wavegan.train_step(wav_batch)
+            gen_loss_acc += losses['gen_loss']
+            disc_loss_acc += losses['disc_loss']
+            print("Progress: {}%\n"
+                  "Generator Loss: {:.5f}\n"
+                  "Discriminator Loss: {:.5f}".format(int((i * 100) / dataset_size), losses['gen_loss'], losses['disc_loss']), end="\r", flush=True)
             i += 1
 
         generate_and_save_audio(wavegan.generator, epoch + 1, seed)
@@ -79,6 +85,7 @@ def main():
         if (epoch + 1) % 15 == 0:
             checkpoint.save(file_prefix=checkpoint_prefix)
 
+        print('Avg generator loss: {:.5f}\nAvg discriminator loss: {:.5f}'.format((gen_loss_acc / i), (disc_loss_acc / i)))
         print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
 
     generate_and_save_audio(wavegan.generator, epochs, seed)
