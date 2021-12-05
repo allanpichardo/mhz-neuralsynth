@@ -23,7 +23,7 @@ def generate_and_save_audio(generator, epoch, test_input, sample_rate=16000):
 def main():
     version = '1'
     sr = 16000
-    batch_size = 128
+    batch_size = 256
     latent_dim = 128
     epochs = 2000
     learning_rate = 0.0001
@@ -75,14 +75,12 @@ def main():
             losses = wavegan.train_step(wav_batch)
             gen_loss_acc += losses['gen_loss']
             disc_loss_acc += losses['disc_loss']
-            print("Progress: {}%\n"
-                  "Generator Loss: {:.5f}\n"
-                  "Discriminator Loss: {:.5f}".format(int((i * 100) / dataset_size), losses['gen_loss'], losses['disc_loss']), end="\r", flush=True)
+            print("Progress: {}%  Generator Loss: {:.5f}  Discriminator Loss: {:.5f}".format(int((i * 100) / dataset_size), losses['gen_loss'], losses['disc_loss']), end="\r", flush=True)
             i += 1
 
         generate_and_save_audio(wavegan.generator, epoch + 1, seed)
 
-        if (epoch + 1) % 15 == 0:
+        if (epoch + 1) % 100 == 0:
             checkpoint.save(file_prefix=checkpoint_prefix)
 
         print('Avg generator loss: {:.5f}\nAvg discriminator loss: {:.5f}'.format((gen_loss_acc / i), (disc_loss_acc / i)))
