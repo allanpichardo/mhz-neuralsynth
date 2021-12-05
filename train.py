@@ -23,7 +23,7 @@ def generate_and_save_audio(generator, epoch, test_input, sample_rate=16000):
 def main():
     version = '1'
     sr = 16000
-    batch_size = 256
+    batch_size = 200
     latent_dim = 128
     epochs = 2000
     learning_rate = 0.0001
