@@ -24,10 +24,10 @@ def main():
     version = '1'
     sr = 16000
     batch_size = 128
-    latent_dim = 8
+    latent_dim = 128
     epochs = 2000
     learning_rate = 0.0001
-    num_examples_to_generate = 4
+    num_examples_to_generate = 8
     seed = tf.random.normal([num_examples_to_generate, latent_dim])
 
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'models')):
