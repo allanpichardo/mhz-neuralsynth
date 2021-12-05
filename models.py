@@ -55,22 +55,33 @@ class WaveGAN(keras.Model):
 
     def _get_generator(self):
         inputs = layers.Input((self._latent_dim,))
-        x = layers.Dense(8 * 8 * 512, use_bias=False)(inputs)
+        x = layers.Dense(4 * 4 * 1024, use_bias=False)(inputs)
         x = layers.BatchNormalization()(x) if self._use_batch_norm else x
         x = layers.LeakyReLU()(x)
-        x = layers.Reshape((8 * 8, 512))(x)
+        x = layers.Reshape((4 * 4, 1024))(x)
 
-        x = self._get_conv_transpose_block(x, 256, strides=1)  # 64
-        x = self._get_conv_transpose_block(x, 128)  # 256
-        x = self._get_conv_transpose_block(x, 64)  # 1024
-        x = self._get_conv_transpose_block(x, 32)  # 4096
+        x = self._get_conv_transpose_block(x, 512)  # 64
+        x = self._get_conv_transpose_block(x, 256)  # 256
+        x = self._get_conv_transpose_block(x, 128)  # 1024
+        x = self._get_conv_transpose_block(x, 64)  # 4096
 
         x = layers.Conv1DTranspose(1, 25, strides=4, padding='same', use_bias=False, activation='tanh')(x)  # 16384
 
         return keras.Model(inputs, x, name='WG_Generator')
 
-    def _phase_shuffle(self, inputs):
-        return tf.roll(inputs, tf.random.uniform([], minval=-self._n, maxval=self._n, dtype=tf.int64), 1)
+    def _phase_shuffle(self, x, pad_type='reflect'):
+        b, x_len, nch = x.get_shape().as_list()
+
+        phase = tf.random.uniform([], minval=-self._n, maxval=self._n + 1, dtype=tf.int32)
+        pad_l = tf.maximum(phase, 0)
+        pad_r = tf.maximum(-phase, 0)
+        phase_start = pad_r
+        x = tf.pad(x, [[0, 0], [pad_l, pad_r], [0, 0]], mode=pad_type)
+
+        x = x[:, phase_start:phase_start + x_len]
+        x.set_shape([b, x_len, nch])
+
+        return x
 
     def _get_discriminator(self):
         inputs = layers.Input(self._waveform_shape)
@@ -79,10 +90,22 @@ class WaveGAN(keras.Model):
         x = self._phase_shuffle(x)
 
         x = layers.Conv1D(128, 25, strides=4, padding='same')(x)
+        x = layers.BatchNormalization()(x)
         x = layers.LeakyReLU()(x)
         x = self._phase_shuffle(x)
 
         x = layers.Conv1D(256, 25, strides=4, padding='same')(x)
+        x = layers.BatchNormalization()(x)
+        x = layers.LeakyReLU()(x)
+        x = self._phase_shuffle(x)
+
+        x = layers.Conv1D(512, 25, strides=4, padding='same')(x)
+        x = layers.BatchNormalization()(x)
+        x = layers.LeakyReLU()(x)
+        x = self._phase_shuffle(x)
+
+        x = layers.Conv1D(1024, 25, strides=4, padding='same')(x)
+        x = layers.BatchNormalization()(x)
         x = layers.LeakyReLU()(x)
         x = self._phase_shuffle(x)
 
