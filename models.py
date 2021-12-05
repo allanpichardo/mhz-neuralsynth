@@ -42,8 +42,8 @@ class WaveGAN(keras.Model):
         self._use_batch_norm = use_batch_norm
         self._cross_entropy = keras.losses.BinaryCrossentropy(from_logits=True)
 
-        self.generator_optimizer = keras.optimizers.Adam(learning_rate=1e-4)
-        self.discriminator_optimizer = keras.optimizers.Adam(learning_rate=1e-4)
+        self.generator_optimizer = keras.optimizers.Adam(learning_rate=1e-5, beta_1=0.5, beta_2=0.9)
+        self.discriminator_optimizer = keras.optimizers.Adam(learning_rate=1e-5, beta_1=0.5, beta_2=0.9)
         self.generator = self._get_generator()
         self.discriminator = self._get_discriminator()
 
@@ -123,8 +123,8 @@ class WaveGAN(keras.Model):
         total_loss = real_loss + fake_loss
         return total_loss
 
-    def set_optimizers(self, generator_optimizer=keras.optimizers.Adam(learning_rate=1e-4),
-                       discriminator_optimizer=keras.optimizers.Adam(learning_rate=1e-4)):
+    def set_optimizers(self, generator_optimizer=keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.9),
+                       discriminator_optimizer=keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.9)):
         self.generator_optimizer = generator_optimizer
         self.discriminator_optimizer = discriminator_optimizer
 
