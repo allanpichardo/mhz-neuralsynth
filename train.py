@@ -27,7 +27,7 @@ def main():
     latent_dim = 128
     epochs = 2000
     learning_rate = 0.0001
-    num_examples_to_generate = 8
+    num_examples_to_generate = 3
     seed = tf.random.normal([num_examples_to_generate, latent_dim])
 
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'models')):
@@ -63,6 +63,9 @@ def main():
     print("Starting training...")
     print("")
 
+    last_gl = 999.0
+    last_dl = 999.0
+
     for epoch in range(epochs):
         print("Starting epoch {} of {}:".format(epoch, epochs))
 
@@ -80,11 +83,15 @@ def main():
 
         generate_and_save_audio(wavegan.generator, epoch + 1, seed)
 
-        if (epoch + 1) % 100 == 0:
-            checkpoint.save(file_prefix=checkpoint_prefix)
-
-        print('Avg generator loss: {:.5f}\nAvg discriminator loss: {:.5f}'.format((gen_loss_acc / i), (disc_loss_acc / i)))
+        avg_gl = (gen_loss_acc / i)
+        avg_dl = (disc_loss_acc / i)
+        print('Avg generator loss: {:.5f}\nAvg discriminator loss: {:.5f}'.format(avg_gl, avg_dl))
         print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
+        print('')
+        if (epoch + 1) % 100 == 0 and (avg_gl < last_gl):
+            checkpoint.save(file_prefix=checkpoint_prefix)
+            last_gl = avg_gl
+            last_dl = avg_dl
 
     generate_and_save_audio(wavegan.generator, epochs, seed)
 
