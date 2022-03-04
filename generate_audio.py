@@ -19,7 +19,7 @@ def lerp(a, b, t):
 
 def main():
     latent_dim = 8
-    version = '2'
+    version = '1'
     generator_model_path = os.path.join(os.path.dirname(__file__), 'models', 'generator_mod_v{}'.format(version))
     disc_model_path = os.path.join(os.path.dirname(__file__), 'models', 'discriminator_mod_v{}'.format(version))
 

@@ -24,7 +24,7 @@ def main():
     version = '1'
     sr = 16000
     batch_size = 200
-    latent_dim = 128
+    latent_dim = 8
     epochs = 2000
     learning_rate = 0.0001
     num_examples_to_generate = 3
