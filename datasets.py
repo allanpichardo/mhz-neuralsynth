@@ -1,20 +1,18 @@
 import tensorflow as tf
-import tensorflow.keras as keras
 import librosa
 import os
 import glob
 import numpy as np
-from utils import mu_law_encode
 from sklearn.model_selection import train_test_split
-import json
 
 
 class SampleDataset:
 
-    def __init__(self, waveform_length=16384, subset='train', full_set=True):
+    def __init__(self, waveform_length=16384, subset='train', full_set=True, base_dir=os.path.dirname(__file__)):
         self.data_sample_length = waveform_length
+        self.base_dir = base_dir
 
-        dataset_path = os.path.join(os.path.dirname(__file__), 'data', 'train*' if subset == 'train' else 'validation*')
+        dataset_path = os.path.join(self.base_dir, 'data', 'train*' if subset == 'train' else 'validation*')
 
         ignore_order = tf.data.Options()
         ignore_order.experimental_deterministic = False  # disable order, increase speed
@@ -51,10 +49,12 @@ class SampleDataset:
 class SampleDatasetBuilder:
 
     def __init__(self, sample_length=8000, sr=16000,
+                 base_dir=os.path.dirname(__file__),
                  sample_dir=os.path.join(os.path.dirname(__file__), 'samples')) -> None:
         super().__init__()
         self.sample_dir = sample_dir
         self.sample_length = sample_length
+        self.base_dir = base_dir
         self.sr = sr
         self.wav_paths = glob.glob(os.path.join(sample_dir, '*', '*'))
         self.train_paths, self.test_paths = train_test_split(self.wav_paths, test_size=0.20, shuffle=True)
@@ -86,7 +86,7 @@ class SampleDatasetBuilder:
         return example_proto.SerializeToString()
 
     def save_record_file(self, subset='train'):
-        filepath = os.path.join(os.path.dirname(__file__), 'data',
+        filepath = os.path.join(self.base_dir, 'data',
                                 'train.tfrecord' if subset != 'validation' else 'validation.tfrecord')
 
         if not os.path.exists(os.path.dirname(filepath)):
